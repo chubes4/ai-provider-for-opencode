@@ -1,0 +1,45 @@
+{
+    "name": "chubes4/ai-provider-for-opencode",
+    "description": "OpenCode Zen and OpenCode Go provider for the WordPress AI Client.",
+    "license": "GPL-2.0-or-later",
+    "keywords": [
+        "ai",
+        "opencode",
+        "wordpress",
+        "llm"
+    ],
+    "authors": [
+        {
+            "name": "Chris Huber",
+            "homepage": "https://github.com/chubes4"
+        }
+    ],
+    "homepage": "https://github.com/chubes4/ai-provider-for-opencode",
+    "support": {
+        "issues": "https://github.com/chubes4/ai-provider-for-opencode/issues",
+        "source": "https://github.com/chubes4/ai-provider-for-opencode"
+    },
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "wordpress/php-ai-client": "^0.4 || dev-trunk"
+    },
+    "suggest": {
+        "wordpress/php-ai-client": "Required. The core PHP AI Client SDK that this provider extends."
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "Chubes4\\OpenCodeAiProvider\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "platform": {
+            "php": "7.4"
+        },
+        "sort-packages": true
+    }
+}
