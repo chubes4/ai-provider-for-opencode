@@ -6,8 +6,18 @@ This plugin registers one provider ID, `opencode`, and exposes text-generation m
 
 - `opencode/kimi-k2.6`
 - `opencode/kimi-k2.5`
+- `opencode/qwen3.6-plus`
+- `opencode/qwen3.5-plus`
+- `opencode/glm-5.1`
+- `opencode/glm-5`
 - `opencode-go/kimi-k2.6`
 - `opencode-go/kimi-k2.5`
+- `opencode-go/qwen3.6-plus`
+- `opencode-go/qwen3.5-plus`
+- `opencode-go/glm-5.1`
+- `opencode-go/glm-5`
+- `opencode-go/deepseek-v4-pro`
+- `opencode-go/deepseek-v4-flash`
 
 ## Requirements
 
@@ -33,3 +43,15 @@ Do not pass raw API keys in task payloads or artifact metadata.
 ## Development
 
 This is intentionally small: it uses the AI Client's OpenAI-compatible chat-completions implementation and hardcoded model metadata. More models can be added with the `ai_provider_for_opencode_model_metadata` filter.
+
+Run the local smoke test:
+
+```bash
+php -d zend.assertions=1 -d assert.exception=1 tests/smoke.php
+```
+
+If your local OpenCode auth state has an `opencode-go` API key, run the live smoke test:
+
+```bash
+php -d zend.assertions=1 -d assert.exception=1 tests/live-opencode-go.php
+```

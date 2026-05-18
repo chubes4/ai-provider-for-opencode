@@ -17,6 +17,17 @@ class OpenCodeTextGenerationModel extends AbstractOpenAiCompatibleTextGeneration
     /**
      * {@inheritDoc}
      */
+    protected function prepareGenerateTextParams(array $prompt): array
+    {
+        $params = parent::prepareGenerateTextParams($prompt);
+        $params['model'] = $this->apiModelId($this->metadata()->getId());
+
+        return $params;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     protected function createRequest(HttpMethodEnum $method, string $path, array $headers = [], $data = null): Request
     {
         $baseUrl = OpenCodeProvider::baseUrlForModel($this->metadata()->getId());
@@ -28,5 +39,23 @@ class OpenCodeTextGenerationModel extends AbstractOpenAiCompatibleTextGeneration
             $data,
             $this->getRequestOptions()
         );
+    }
+
+    /**
+     * Returns the model ID expected by the OpenCode API endpoint.
+     *
+     * WordPress AI Client selections use OpenCode's provider-prefixed config
+     * IDs, while the OpenAI-compatible endpoint expects the bare model ID.
+     *
+     * @param string $modelId The provider-prefixed model ID.
+     * @return string The endpoint model ID.
+     */
+    private function apiModelId(string $modelId): string
+    {
+        if (strpos($modelId, '/') === false) {
+            return $modelId;
+        }
+
+        return substr($modelId, strpos($modelId, '/') + 1);
     }
 }
