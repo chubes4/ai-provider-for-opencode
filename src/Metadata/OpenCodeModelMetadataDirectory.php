@@ -6,13 +6,18 @@ namespace Chubes4\OpenCodeAiProvider\Metadata;
 
 use WordPress\AiClient\Messages\Enums\ModalityEnum;
 use WordPress\AiClient\Providers\ApiBasedImplementation\AbstractApiBasedModelMetadataDirectory;
+use WordPress\AiClient\Providers\Http\DTO\Request;
+use WordPress\AiClient\Providers\Http\DTO\Response;
+use WordPress\AiClient\Providers\Http\Enums\HttpMethodEnum;
+use WordPress\AiClient\Providers\Http\Exception\ResponseException;
+use WordPress\AiClient\Providers\Http\Util\ResponseUtil;
 use WordPress\AiClient\Providers\Models\DTO\ModelMetadata;
 use WordPress\AiClient\Providers\Models\DTO\SupportedOption;
 use WordPress\AiClient\Providers\Models\Enums\CapabilityEnum;
 use WordPress\AiClient\Providers\Models\Enums\OptionEnum;
 
 /**
- * Static OpenCode model metadata directory.
+ * OpenCode model metadata directory.
  */
 class OpenCodeModelMetadataDirectory extends AbstractApiBasedModelMetadataDirectory
 {
@@ -21,32 +26,10 @@ class OpenCodeModelMetadataDirectory extends AbstractApiBasedModelMetadataDirect
      */
     protected function sendListModelsRequest(): array
     {
-        $models = [
-            'opencode/kimi-k2.6' => 'OpenCode Zen Kimi K2.6',
-            'opencode/kimi-k2.5' => 'OpenCode Zen Kimi K2.5',
-            'opencode/qwen3.6-plus' => 'OpenCode Zen Qwen3.6 Plus',
-            'opencode/qwen3.5-plus' => 'OpenCode Zen Qwen3.5 Plus',
-            'opencode/glm-5.1' => 'OpenCode Zen GLM 5.1',
-            'opencode/glm-5' => 'OpenCode Zen GLM 5',
-            'opencode-go/kimi-k2.6' => 'OpenCode Go Kimi K2.6',
-            'opencode-go/kimi-k2.5' => 'OpenCode Go Kimi K2.5',
-            'opencode-go/qwen3.6-plus' => 'OpenCode Go Qwen3.6 Plus',
-            'opencode-go/qwen3.5-plus' => 'OpenCode Go Qwen3.5 Plus',
-            'opencode-go/glm-5.1' => 'OpenCode Go GLM 5.1',
-            'opencode-go/glm-5' => 'OpenCode Go GLM 5',
-            'opencode-go/deepseek-v4-pro' => 'OpenCode Go DeepSeek V4 Pro',
-            'opencode-go/deepseek-v4-flash' => 'OpenCode Go DeepSeek V4 Flash',
-        ];
-
-        $metadata = [];
-        foreach ($models as $id => $name) {
-            $metadata[$id] = new ModelMetadata(
-                $id,
-                $name,
-                [CapabilityEnum::textGeneration(), CapabilityEnum::chatHistory()],
-                $this->textOptions()
-            );
-        }
+        $metadata = array_merge(
+            $this->listSurfaceModels('opencode', 'OpenCode Zen', 'https://opencode.ai/zen/v1'),
+            $this->listSurfaceModels('opencode-go', 'OpenCode Go', 'https://opencode.ai/zen/go/v1')
+        );
 
         /**
          * Filters the OpenCode models exposed to the WordPress AI Client.
@@ -58,6 +41,95 @@ class OpenCodeModelMetadataDirectory extends AbstractApiBasedModelMetadataDirect
         }
 
         return $metadata;
+    }
+
+    /**
+     * Lists models for one OpenCode API surface.
+     *
+     * @param string $prefix The WordPress-facing model ID prefix.
+     * @param string $labelPrefix Display-name prefix.
+     * @param string $baseUrl OpenCode API base URL.
+     * @return array<string, ModelMetadata>
+     */
+    private function listSurfaceModels(string $prefix, string $labelPrefix, string $baseUrl): array
+    {
+        $request = new Request(
+            HttpMethodEnum::GET(),
+            rtrim($baseUrl, '/') . '/models'
+        );
+        $request = $this->getRequestAuthentication()->authenticateRequest($request);
+        $response = $this->getHttpTransporter()->send($request);
+        ResponseUtil::throwIfNotSuccessful($response);
+
+        return $this->responseToModelMetadata($response, $prefix, $labelPrefix);
+    }
+
+    /**
+     * Converts an OpenAI-compatible models response into WordPress AI metadata.
+     *
+     * @param Response $response The models response.
+     * @param string   $prefix The WordPress-facing model ID prefix.
+     * @param string   $labelPrefix Display-name prefix.
+     * @return array<string, ModelMetadata>
+     */
+    private function responseToModelMetadata(Response $response, string $prefix, string $labelPrefix): array
+    {
+        $responseData = $response->getData();
+        if (!isset($responseData['data']) || !is_array($responseData['data'])) {
+            throw ResponseException::fromMissingData($labelPrefix, 'data');
+        }
+
+        $metadata = [];
+        foreach ($responseData['data'] as $modelData) {
+            if (!is_array($modelData) || !isset($modelData['id']) || !is_string($modelData['id']) || $modelData['id'] === '') {
+                continue;
+            }
+
+            $id = $this->providerModelId($prefix, $modelData['id']);
+            $metadata[$id] = new ModelMetadata(
+                $id,
+                $this->modelName($labelPrefix, $modelData),
+                [CapabilityEnum::textGeneration(), CapabilityEnum::chatHistory()],
+                $this->textOptions()
+            );
+        }
+
+        ksort($metadata);
+
+        return $metadata;
+    }
+
+    /**
+     * Returns the WordPress-facing provider model ID.
+     *
+     * @param string $prefix The model ID prefix.
+     * @param string $apiModelId The model ID returned by OpenCode.
+     * @return string
+     */
+    private function providerModelId(string $prefix, string $apiModelId): string
+    {
+        if (strpos($apiModelId, $prefix . '/') === 0) {
+            return $apiModelId;
+        }
+
+        return $prefix . '/' . $apiModelId;
+    }
+
+    /**
+     * Returns a display name for an OpenCode model.
+     *
+     * @param string $labelPrefix Display-name prefix.
+     * @param array<string, mixed> $modelData Model data returned by OpenCode.
+     * @return string
+     */
+    private function modelName(string $labelPrefix, array $modelData): string
+    {
+        $name = $modelData['name'] ?? $modelData['id'] ?? '';
+        if (!is_string($name) || $name === '') {
+            return $labelPrefix;
+        }
+
+        return $labelPrefix . ' ' . $name;
     }
 
     /**
