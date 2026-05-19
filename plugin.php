@@ -4,7 +4,7 @@
  * Plugin Name: AI Provider for OpenCode
  * Plugin URI: https://github.com/chubes4/ai-provider-for-opencode
  * Description: OpenCode Zen and OpenCode Go provider for the WordPress AI Client.
- * Requires at least: 6.9
+ * Requires at least: 7.0
  * Requires PHP: 7.4
  * Version: 0.1.0
  * Author: Chris Huber
