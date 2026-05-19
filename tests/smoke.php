@@ -26,10 +26,24 @@ use WordPress\AiClient\Providers\Http\DTO\Response;
 final class CapturingTransporter implements HttpTransporterInterface
 {
     public ?Request $request = null;
+    /** @var list<string> */
+    public array $uris = [];
 
     public function send(Request $request, ?RequestOptions $options = null): Response
     {
         $this->request = $request;
+        $this->uris[] = $request->getUri();
+
+        if (substr($request->getUri(), -7) === '/models') {
+            $models = strpos($request->getUri(), '/zen/go/') !== false
+                ? [['id' => 'kimi-k2.6'], ['id' => 'deepseek-v4-flash']]
+                : [['id' => 'kimi-k2.6'], ['id' => 'qwen3.6-plus']];
+
+            return new Response(200, ['Content-Type' => 'application/json'], json_encode([
+                'object' => 'list',
+                'data' => $models,
+            ], JSON_THROW_ON_ERROR));
+        }
 
         return new Response(200, ['Content-Type' => 'application/json'], json_encode([
             'id' => 'test-response',
@@ -55,11 +69,13 @@ $metadata = OpenCodeProvider::metadata();
 assert($metadata->getId() === 'opencode');
 
 $directory = OpenCodeProvider::modelMetadataDirectory();
+$directory->setHttpTransporter(new CapturingTransporter());
+$directory->setRequestAuthentication(new ApiKeyRequestAuthentication('test-key'));
 $models    = $directory->listModelMetadata();
-assert(count($models) === 14);
+assert(count($models) === 4);
 assert($directory->hasModelMetadata('opencode/kimi-k2.6'));
 assert($directory->hasModelMetadata('opencode-go/kimi-k2.6'));
-assert($directory->hasModelMetadata('opencode-go/qwen3.5-plus'));
+assert($directory->hasModelMetadata('opencode-go/deepseek-v4-flash'));
 
 assert(OpenCodeProvider::baseUrlForModel('opencode/kimi-k2.6') === OpenCodeProvider::ZEN_BASE_URL);
 assert(OpenCodeProvider::baseUrlForModel('opencode-go/kimi-k2.6') === OpenCodeProvider::GO_BASE_URL);

@@ -1,23 +1,8 @@
 # AI Provider for OpenCode
 
-WordPress AI Client provider for OpenCode Zen and OpenCode Go.
+WordPress AI Client provider for OpenCode Zen and [OpenCode Go](https://opencode.ai/zen/go), a low-cost option for AI tokens.
 
-This plugin registers one provider ID, `opencode`, and exposes text-generation models for both OpenCode surfaces:
-
-- `opencode/kimi-k2.6`
-- `opencode/kimi-k2.5`
-- `opencode/qwen3.6-plus`
-- `opencode/qwen3.5-plus`
-- `opencode/glm-5.1`
-- `opencode/glm-5`
-- `opencode-go/kimi-k2.6`
-- `opencode-go/kimi-k2.5`
-- `opencode-go/qwen3.6-plus`
-- `opencode-go/qwen3.5-plus`
-- `opencode-go/glm-5.1`
-- `opencode-go/glm-5`
-- `opencode-go/deepseek-v4-pro`
-- `opencode-go/deepseek-v4-flash`
+This plugin registers one provider ID, `opencode`, and discovers text-generation models from both OpenCode surfaces.
 
 ## Requirements
 
@@ -27,7 +12,7 @@ This plugin registers one provider ID, `opencode`, and exposes text-generation m
 
 ## Usage
 
-Install and activate this plugin on a WordPress 7.0+ site. Configure the `opencode` provider API key anywhere your AI Client integration stores provider credentials, then select one of the `opencode/*` or `opencode-go/*` model IDs.
+Install and activate this plugin on a WordPress 7.0+ site. Configure the `opencode` provider API key anywhere your AI Client integration stores provider credentials, then select one of the `opencode/*` or `opencode-go/*` model IDs. Use `opencode-go/*` models when you want the lower-cost OpenCode Go token path.
 
 `opencode/*` requests go to `https://opencode.ai/zen/v1/chat/completions`.
 
