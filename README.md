@@ -21,24 +21,17 @@ This plugin registers one provider ID, `opencode`, and exposes text-generation m
 
 ## Requirements
 
-- WordPress 6.9 or newer
+- WordPress 7.0 or newer, including the bundled WordPress AI Client
 - PHP 7.4 or newer
-- WordPress AI Client
 - An OpenCode API key
 
 ## Usage
 
-Install and activate this plugin alongside the WordPress AI Client. Configure the `opencode` provider API key anywhere your AI Client integration stores provider credentials, then select one of the `opencode/*` or `opencode-go/*` model IDs.
+Install and activate this plugin on a WordPress 7.0+ site. Configure the `opencode` provider API key anywhere your AI Client integration stores provider credentials, then select one of the `opencode/*` or `opencode-go/*` model IDs.
 
 `opencode/*` requests go to `https://opencode.ai/zen/v1/chat/completions`.
 
 `opencode-go/*` requests go to `https://opencode.ai/zen/go/v1/chat/completions`.
-
-## Sandbox Runtime
-
-This plugin is intended to be the API-key provider surface for Sandbox Runtime minions. The runner should pass a connector or credential reference from the parent site, resolve it on the parent side, and inject only the scoped sandbox credential needed for the run.
-
-Do not pass raw API keys in task payloads or artifact metadata.
 
 ## Development
 
