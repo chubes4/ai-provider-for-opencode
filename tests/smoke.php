@@ -85,6 +85,10 @@ $goModel  = OpenCodeProvider::model('opencode-go/kimi-k2.6');
 assert($zenModel instanceof OpenCodeTextGenerationModel);
 assert($goModel instanceof OpenCodeTextGenerationModel);
 
+$freshDirectory = OpenCodeProvider::modelMetadataDirectory();
+assert($freshDirectory->hasModelMetadata('opencode-go/kimi-k2.6'));
+assert(OpenCodeProvider::model('opencode-go/kimi-k2.6') instanceof OpenCodeTextGenerationModel);
+
 $transport = new CapturingTransporter();
 $goModel->setHttpTransporter($transport);
 $goModel->setRequestAuthentication(new ApiKeyRequestAuthentication('test-key'));
