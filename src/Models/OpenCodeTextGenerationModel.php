@@ -31,6 +31,8 @@ class OpenCodeTextGenerationModel extends AbstractOpenAiCompatibleTextGeneration
     protected function createRequest(HttpMethodEnum $method, string $path, array $headers = [], $data = null): Request
     {
         $baseUrl = OpenCodeProvider::baseUrlForModel($this->metadata()->getId());
+        $headers['X-AI-Provider-For-OpenCode-Route'] = $this->routeName($this->metadata()->getId());
+        $headers['X-AI-Provider-For-OpenCode-Upstream'] = $baseUrl;
 
         return new Request(
             $method,
@@ -57,5 +59,20 @@ class OpenCodeTextGenerationModel extends AbstractOpenAiCompatibleTextGeneration
         }
 
         return substr($modelId, strpos($modelId, '/') + 1);
+    }
+
+    /**
+     * Returns the OpenCode surface name for route attribution.
+     *
+     * @param string $modelId The provider-prefixed model ID.
+     * @return string Route name.
+     */
+    private function routeName(string $modelId): string
+    {
+        if (strpos($modelId, 'opencode-go/') === 0) {
+            return 'opencode-go';
+        }
+
+        return 'opencode';
     }
 }

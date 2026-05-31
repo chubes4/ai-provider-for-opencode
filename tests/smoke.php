@@ -13,6 +13,7 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/src/autoload.php';
 
 use Chubes4\OpenCodeAiProvider\Models\OpenCodeTextGenerationModel;
+use Chubes4\OpenCodeAiProvider\Diagnostics\OpenCodeGatewayTopology;
 use Chubes4\OpenCodeAiProvider\Provider\OpenCodeProvider;
 use WordPress\AiClient\Messages\DTO\Message;
 use WordPress\AiClient\Messages\DTO\MessagePart;
@@ -100,5 +101,34 @@ assert($transport->request instanceof Request);
 assert($transport->request->getUri() === 'https://opencode.ai/zen/go/v1/chat/completions');
 assert($transport->request->getData()['model'] === 'kimi-k2.6');
 assert($transport->request->getHeaderAsString('Authorization') === 'Bearer test-key');
+assert($transport->request->getHeaderAsString('X-AI-Provider-For-OpenCode-Route') === 'opencode-go');
+assert($transport->request->getHeaderAsString('X-AI-Provider-For-OpenCode-Upstream') === OpenCodeProvider::GO_BASE_URL);
+
+$selfGatewayDiagnostic = OpenCodeGatewayTopology::validate([
+    'gateway_provider' => 'opencode',
+    'gateway_base_url' => 'https://example.test/wp-json/wp-ai-gateway/v1',
+    'opencode_runtime_base_url' => 'https://example.test/wp-json/wp-ai-gateway/v1/',
+    'opencode_provider_base_url' => 'https://example.test/wp-json/wp-ai-gateway/v1',
+]);
+assert($selfGatewayDiagnostic['ok'] === false);
+assert($selfGatewayDiagnostic['code'] === OpenCodeGatewayTopology::CODE_RECURSIVE_GATEWAY_ROUTE);
+
+$codexDiagnostic = OpenCodeGatewayTopology::validate([
+    'gateway_provider' => 'codex',
+    'gateway_base_url' => 'https://example.test/wp-json/wp-ai-gateway/v1',
+    'opencode_runtime_base_url' => 'https://example.test/wp-json/wp-ai-gateway/v1',
+    'opencode_provider_base_url' => 'https://example.test/wp-json/wp-ai-gateway/v1',
+]);
+assert($codexDiagnostic['ok'] === true);
+assert($codexDiagnostic['reason'] === 'gateway_provider_not_opencode');
+
+$externalOpenCodeDiagnostic = OpenCodeGatewayTopology::validate([
+    'gateway_provider' => 'opencode',
+    'gateway_base_url' => 'https://example.test/wp-json/wp-ai-gateway/v1',
+    'opencode_runtime_base_url' => 'https://example.test/wp-json/wp-ai-gateway/v1',
+    'opencode_provider_base_url' => OpenCodeProvider::GO_BASE_URL,
+]);
+assert($externalOpenCodeDiagnostic['ok'] === true);
+assert($externalOpenCodeDiagnostic['reason'] === 'opencode_provider_uses_external_upstream');
 
 fwrite(STDOUT, "OpenCode provider smoke passed.\n");

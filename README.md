@@ -18,6 +18,18 @@ Install and activate this plugin on a WordPress 7.0+ site. Configure the `openco
 
 `opencode-go/*` requests go to `https://opencode.ai/zen/go/v1/chat/completions`.
 
+## WP AI Gateway topology checks
+
+This provider targets fixed external OpenCode Zen and OpenCode Go upstreams. If another plugin, such as WP AI Gateway or wp-coding-agents, brokers OpenCode runtime traffic, it can call `Chubes4\OpenCodeAiProvider\Diagnostics\OpenCodeGatewayTopology::validate()` before enabling a route.
+
+The diagnostic rejects only the known recursive topology:
+
+- WP AI Gateway provider is `opencode`
+- the local OpenCode runtime `baseURL` points at the same gateway
+- the opencode provider upstream target also resolves back to that same gateway
+
+Gateway `provider=codex` and gateway `provider=opencode` routes to external OpenCode Zen/Go upstreams are allowed. Provider requests also include route attribution headers, `X-AI-Provider-For-OpenCode-Route` and `X-AI-Provider-For-OpenCode-Upstream`, so gateway logs can distinguish local runtime, gateway-brokered, and external OpenCode Go traffic without logging secrets.
+
 ## Development
 
 This is intentionally small: it uses the AI Client's OpenAI-compatible chat-completions implementation and hardcoded model metadata. More models can be added with the `ai_provider_for_opencode_model_metadata` filter.
