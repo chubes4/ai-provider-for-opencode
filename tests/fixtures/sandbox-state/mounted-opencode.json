@@ -1,0 +1,22 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "provider": {
+        "deterministic-provider": {
+            "name": "Deterministic Provider",
+            "models": {
+                "deterministic-v2": {
+                    "name": "Deterministic V2"
+                }
+            }
+        },
+        "opencode-go": {
+            "name": "OpenCode Go Local",
+            "models": {
+                "local-go-model": {
+                    "name": "Local Go Model"
+                }
+            }
+        }
+    },
+    "model": "deterministic-provider/deterministic-v2"
+}

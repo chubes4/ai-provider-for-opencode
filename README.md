@@ -20,7 +20,7 @@ Install and activate this plugin on a WordPress 7.0+ site. Configure the `openco
 
 ## Development
 
-This is intentionally small: it uses the AI Client's OpenAI-compatible chat-completions implementation and hardcoded model metadata. More models can be added with the `ai_provider_for_opencode_model_metadata` filter.
+This is intentionally small: it uses the AI Client's OpenAI-compatible chat-completions implementation, discovers local OpenCode state when available, and keeps static fallback metadata for unauthenticated model lookup. More models can be added with the `ai_provider_for_opencode_model_metadata` filter.
 
 Run the local smoke test:
 
