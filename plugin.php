@@ -6,7 +6,7 @@
  * Description: OpenCode Zen and OpenCode Go provider for the WordPress AI Client.
  * Requires at least: 7.0
  * Requires PHP: 7.4
- * Version: 0.2.0
+ * Version: 0.2.1
  * Author: Chris Huber
  * Author URI: https://github.com/chubes4
  * License: GPL-2.0-or-later
