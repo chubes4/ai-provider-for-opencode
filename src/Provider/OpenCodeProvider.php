@@ -6,6 +6,7 @@ namespace Chubes4\OpenCodeAiProvider\Provider;
 
 use Chubes4\OpenCodeAiProvider\Metadata\OpenCodeModelMetadataDirectory;
 use Chubes4\OpenCodeAiProvider\Models\OpenCodeTextGenerationModel;
+use Chubes4\OpenCodeAiProvider\Support\OpenCodeLocalState;
 use WordPress\AiClient\AiClient;
 use WordPress\AiClient\Common\Exception\RuntimeException;
 use WordPress\AiClient\Providers\ApiBasedImplementation\AbstractApiProvider;
@@ -14,6 +15,7 @@ use WordPress\AiClient\Providers\Contracts\ModelMetadataDirectoryInterface;
 use WordPress\AiClient\Providers\Contracts\ProviderAvailabilityInterface;
 use WordPress\AiClient\Providers\DTO\ProviderMetadata;
 use WordPress\AiClient\Providers\Enums\ProviderTypeEnum;
+use WordPress\AiClient\Providers\Http\DTO\ApiKeyRequestAuthentication;
 use WordPress\AiClient\Providers\Http\Enums\RequestAuthenticationMethod;
 use WordPress\AiClient\Providers\Models\Contracts\ModelInterface;
 use WordPress\AiClient\Providers\Models\DTO\ModelMetadata;
@@ -57,11 +59,29 @@ class OpenCodeProvider extends AbstractApiProvider
     {
         foreach ($modelMetadata->getSupportedCapabilities() as $capability) {
             if ($capability->isTextGeneration()) {
-                return new OpenCodeTextGenerationModel($modelMetadata, $providerMetadata);
+                $model = new OpenCodeTextGenerationModel($modelMetadata, $providerMetadata);
+                $key = OpenCodeLocalState::apiKeyForSurface(static::surfaceForModel($modelMetadata->getId()));
+
+                if ('' !== $key) {
+                    $model->setRequestAuthentication(new ApiKeyRequestAuthentication($key));
+                }
+
+                return $model;
             }
         }
 
         throw new RuntimeException('Unsupported OpenCode model capabilities.');
+    }
+
+    /**
+     * Returns the OpenCode auth surface for a provider model ID.
+     *
+     * @param string $modelId The provider model ID.
+     * @return string The OpenCode auth surface.
+     */
+    private static function surfaceForModel(string $modelId): string
+    {
+        return strpos($modelId, 'opencode-go/') === 0 ? 'opencode-go' : 'opencode';
     }
 
     /**

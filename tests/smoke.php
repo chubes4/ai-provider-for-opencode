@@ -9,15 +9,24 @@ if (!function_exists('apply_filters')) {
     }
 }
 
+function expect(bool $condition, string $message): void
+{
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/src/autoload.php';
 
 use Chubes4\OpenCodeAiProvider\Models\OpenCodeTextGenerationModel;
 use Chubes4\OpenCodeAiProvider\Metadata\OpenCodeModelMetadataDirectory;
 use Chubes4\OpenCodeAiProvider\Provider\OpenCodeProvider;
+use WordPress\AiClient\AiClient;
 use WordPress\AiClient\Messages\DTO\Message;
 use WordPress\AiClient\Messages\DTO\MessagePart;
 use WordPress\AiClient\Messages\Enums\MessageRoleEnum;
+use WordPress\AiClient\Providers\ProviderRegistry;
 use WordPress\AiClient\Providers\Http\Contracts\HttpTransporterInterface;
 use WordPress\AiClient\Providers\Http\DTO\ApiKeyRequestAuthentication;
 use WordPress\AiClient\Providers\Http\DTO\Request;
@@ -81,34 +90,34 @@ final class CapturingTransporter implements HttpTransporterInterface
 }
 
 $metadata = OpenCodeProvider::metadata();
-assert($metadata->getId() === 'opencode');
+expect($metadata->getId() === 'opencode', 'Provider metadata ID should be opencode.');
 
 $directory = OpenCodeProvider::modelMetadataDirectory();
 $directory->setHttpTransporter(new CapturingTransporter());
 $directory->setRequestAuthentication(new ApiKeyRequestAuthentication('test-key'));
 $models    = $directory->listModelMetadata();
-assert(count($models) === 7);
-assert($directory->hasModelMetadata('opencode/kimi-k2.6'));
-assert($directory->hasModelMetadata('opencode-go/kimi-k2.6'));
-assert($directory->hasModelMetadata('opencode-go/deepseek-v4-flash'));
-assert($directory->hasModelMetadata('opencode/deterministic-provider/deterministic-v2'));
-assert($directory->hasModelMetadata('opencode-go/local-go-model'));
-assert($directory->hasModelMetadata('opencode/anthropic/claude-local'));
+expect(count($models) === 7, 'Authenticated model listing should include live and local configured models.');
+expect($directory->hasModelMetadata('opencode/kimi-k2.6'), 'Zen model metadata should be present.');
+expect($directory->hasModelMetadata('opencode-go/kimi-k2.6'), 'Go model metadata should be present.');
+expect($directory->hasModelMetadata('opencode-go/deepseek-v4-flash'), 'Go live model metadata should be present.');
+expect($directory->hasModelMetadata('opencode/deterministic-provider/deterministic-v2'), 'Configured provider model metadata should be present.');
+expect($directory->hasModelMetadata('opencode-go/local-go-model'), 'Configured Go model metadata should be present.');
+expect($directory->hasModelMetadata('opencode/anthropic/claude-local'), 'Configured Anthropic model metadata should be present.');
 
-assert(OpenCodeProvider::baseUrlForModel('opencode/kimi-k2.6') === OpenCodeProvider::ZEN_BASE_URL);
-assert(OpenCodeProvider::baseUrlForModel('opencode-go/kimi-k2.6') === OpenCodeProvider::GO_BASE_URL);
+expect(OpenCodeProvider::baseUrlForModel('opencode/kimi-k2.6') === OpenCodeProvider::ZEN_BASE_URL, 'Zen model should use Zen base URL.');
+expect(OpenCodeProvider::baseUrlForModel('opencode-go/kimi-k2.6') === OpenCodeProvider::GO_BASE_URL, 'Go model should use Go base URL.');
 
 $zenModel = OpenCodeProvider::model('opencode/kimi-k2.6');
 $goModel  = OpenCodeProvider::model('opencode-go/kimi-k2.6');
-assert($zenModel instanceof OpenCodeTextGenerationModel);
-assert($goModel instanceof OpenCodeTextGenerationModel);
+expect($zenModel instanceof OpenCodeTextGenerationModel, 'Zen provider model should be an OpenCode text model.');
+expect($goModel instanceof OpenCodeTextGenerationModel, 'Go provider model should be an OpenCode text model.');
 
 $freshDirectory = new OpenCodeModelMetadataDirectory();
-assert(count($freshDirectory->listModelMetadata()) === 17);
-assert($freshDirectory->hasModelMetadata('opencode/kimi-k2.6'));
-assert($freshDirectory->hasModelMetadata('opencode-go/kimi-k2.6'));
-assert($freshDirectory->hasModelMetadata('opencode-go/local-go-model'));
-assert(OpenCodeProvider::model('opencode-go/local-go-model') instanceof OpenCodeTextGenerationModel);
+expect(count($freshDirectory->listModelMetadata()) === 17, 'Fresh directory should fall back to static plus local configured models.');
+expect($freshDirectory->hasModelMetadata('opencode/kimi-k2.6'), 'Fresh directory should include Zen fallback model metadata.');
+expect($freshDirectory->hasModelMetadata('opencode-go/kimi-k2.6'), 'Fresh directory should include Go fallback model metadata.');
+expect($freshDirectory->hasModelMetadata('opencode-go/local-go-model'), 'Fresh directory should include local Go model metadata.');
+expect(OpenCodeProvider::model('opencode-go/local-go-model') instanceof OpenCodeTextGenerationModel, 'Provider should create configured Go text model.');
 
 putenv('OPENCODE_CONFIG=' . $emptyRoot . '/missing-opencode.json');
 putenv('XDG_CONFIG_HOME=' . $emptyRoot . '/config');
@@ -116,9 +125,9 @@ putenv('XDG_DATA_HOME=' . $emptyRoot . '/data');
 putenv('XDG_STATE_HOME=' . $emptyRoot . '/state');
 
 $fallbackDirectory = new OpenCodeModelMetadataDirectory();
-assert(count($fallbackDirectory->listModelMetadata()) === 14);
-assert($fallbackDirectory->hasModelMetadata('opencode/kimi-k2.6'));
-assert($fallbackDirectory->hasModelMetadata('opencode-go/deepseek-v4-flash'));
+expect(count($fallbackDirectory->listModelMetadata()) === 14, 'Empty state should expose static fallback models.');
+expect($fallbackDirectory->hasModelMetadata('opencode/kimi-k2.6'), 'Fallback directory should include Zen static model.');
+expect($fallbackDirectory->hasModelMetadata('opencode-go/deepseek-v4-flash'), 'Fallback directory should include Go static model.');
 
 putenv('OPENCODE_CONFIG=' . $configPath);
 putenv('XDG_DATA_HOME=' . $dataHome);
@@ -131,10 +140,10 @@ $goModel->generateTextResult([
     new Message(MessageRoleEnum::user(), [new MessagePart('hello')]),
 ]);
 
-assert($transport->request instanceof Request);
-assert($transport->request->getUri() === 'https://opencode.ai/zen/go/v1/chat/completions');
-assert($transport->request->getData()['model'] === 'kimi-k2.6');
-assert($transport->request->getHeaderAsString('Authorization') === 'Bearer test-key');
+expect($transport->request instanceof Request, 'Explicit-auth model execution should send a request.');
+expect($transport->request->getUri() === 'https://opencode.ai/zen/go/v1/chat/completions', 'Go model should use Go completions endpoint.');
+expect($transport->request->getData()['model'] === 'kimi-k2.6', 'Go model request should use bare API model ID.');
+expect($transport->request->getHeaderAsString('Authorization') === 'Bearer test-key', 'Explicit auth should be preserved.');
 
 $localAuthModel = OpenCodeProvider::model('opencode-go/local-go-model');
 $localAuthTransport = new CapturingTransporter();
@@ -143,10 +152,37 @@ $localAuthModel->generateTextResult([
     new Message(MessageRoleEnum::user(), [new MessagePart('hello')]),
 ]);
 
-assert($localAuthTransport->request instanceof Request);
+expect($localAuthTransport->request instanceof Request, 'Local-auth direct provider model execution should send a request.');
 $authFixture = json_decode(file_get_contents($dataHome . '/opencode/auth.json'), true, 512, JSON_THROW_ON_ERROR);
 $authorizationHash = hash('sha256', $localAuthTransport->request->getHeaderAsString('Authorization'));
 $expectedAuthHash  = hash('sha256', 'Bearer ' . $authFixture['opencode-go']['key']);
-assert($authorizationHash === $expectedAuthHash);
+expect($authorizationHash === $expectedAuthHash, 'Local-auth direct provider model execution should use mounted OpenCode auth state.');
+
+$registryTransport = new CapturingTransporter();
+$registry = new ProviderRegistry();
+$registry->setHttpTransporter($registryTransport);
+$registry->registerProvider(OpenCodeProvider::class);
+$registryModel = $registry->getProviderModel('opencode', 'opencode-go/local-go-model');
+$registryModel->generateTextResult([
+    new Message(MessageRoleEnum::user(), [new MessagePart('hello')]),
+]);
+
+expect($registryTransport->request instanceof Request, 'Registry-created provider model execution should send a request.');
+$registryAuthorizationHash = hash('sha256', $registryTransport->request->getHeaderAsString('Authorization'));
+expect($registryAuthorizationHash === $expectedAuthHash, 'Registry-created provider model execution should use mounted OpenCode auth state.');
+
+$aiClientTransport = new CapturingTransporter();
+$aiClientRegistry = new ProviderRegistry();
+$aiClientRegistry->setHttpTransporter($aiClientTransport);
+$aiClientRegistry->registerProvider(OpenCodeProvider::class);
+AiClient::generateTextResult(
+    [new Message(MessageRoleEnum::user(), [new MessagePart('hello')])],
+    OpenCodeProvider::model('opencode-go/local-go-model'),
+    $aiClientRegistry
+);
+
+expect($aiClientTransport->request instanceof Request, 'AiClient provider model execution should send a request.');
+$aiClientAuthorizationHash = hash('sha256', $aiClientTransport->request->getHeaderAsString('Authorization'));
+expect($aiClientAuthorizationHash === $expectedAuthHash, 'AiClient provider model execution should use mounted OpenCode auth state.');
 
 fwrite(STDOUT, "OpenCode provider smoke passed.\n");
