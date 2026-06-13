@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Chubes4\OpenCodeAiProvider\Metadata;
 
+use Chubes4\OpenCodeAiProvider\Support\OpenCodeLocalState;
 use WordPress\AiClient\Messages\Enums\ModalityEnum;
 use WordPress\AiClient\Providers\ApiBasedImplementation\AbstractApiBasedModelMetadataDirectory;
+use WordPress\AiClient\Providers\Http\Contracts\RequestAuthenticationInterface;
+use WordPress\AiClient\Providers\Http\DTO\ApiKeyRequestAuthentication;
 use WordPress\AiClient\Providers\Http\DTO\Request;
 use WordPress\AiClient\Providers\Http\DTO\Response;
 use WordPress\AiClient\Providers\Http\Enums\HttpMethodEnum;
@@ -35,6 +38,8 @@ class OpenCodeModelMetadataDirectory extends AbstractApiBasedModelMetadataDirect
             $metadata = $this->fallbackModelMetadata();
         }
 
+        $metadata = array_merge($metadata, $this->localConfiguredModelMetadata());
+
         /**
          * Filters the OpenCode models exposed to the WordPress AI Client.
          *
@@ -45,6 +50,24 @@ class OpenCodeModelMetadataDirectory extends AbstractApiBasedModelMetadataDirect
         }
 
         return $metadata;
+    }
+
+    public function getRequestAuthentication(): RequestAuthenticationInterface
+    {
+        try {
+            return parent::getRequestAuthentication();
+        } catch (\Throwable $e) {
+            $key = OpenCodeLocalState::apiKeyForSurface('opencode');
+            if ('' === $key) {
+                $key = OpenCodeLocalState::apiKeyForSurface('opencode-go');
+            }
+
+            if ('' !== $key) {
+                return new ApiKeyRequestAuthentication($key);
+            }
+
+            throw $e;
+        }
     }
 
     /**
@@ -96,6 +119,25 @@ class OpenCodeModelMetadataDirectory extends AbstractApiBasedModelMetadataDirect
             $metadata[$id] = new ModelMetadata(
                 $id,
                 $labelPrefix . ' ' . $modelId,
+                [CapabilityEnum::textGeneration(), CapabilityEnum::chatHistory()],
+                $this->textOptions()
+            );
+        }
+
+        return $metadata;
+    }
+
+    /**
+     * @return array<string, ModelMetadata>
+     */
+    private function localConfiguredModelMetadata(): array
+    {
+        $metadata = [];
+        foreach (OpenCodeLocalState::configuredModels() as $model) {
+            $id = $this->configuredProviderModelId($model['provider'], $model['model']);
+            $metadata[$id] = new ModelMetadata(
+                $id,
+                'OpenCode ' . $model['provider'] . ' ' . $model['name'],
                 [CapabilityEnum::textGeneration(), CapabilityEnum::chatHistory()],
                 $this->textOptions()
             );
@@ -174,6 +216,19 @@ class OpenCodeModelMetadataDirectory extends AbstractApiBasedModelMetadataDirect
         }
 
         return $prefix . '/' . $apiModelId;
+    }
+
+    private function configuredProviderModelId(string $providerId, string $modelId): string
+    {
+        if ('opencode-go' === $providerId) {
+            return $this->providerModelId('opencode-go', $modelId);
+        }
+
+        if ('opencode' === $providerId) {
+            return $this->providerModelId('opencode', $modelId);
+        }
+
+        return 'opencode/' . $providerId . '/' . $modelId;
     }
 
     /**
