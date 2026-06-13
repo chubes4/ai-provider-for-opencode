@@ -13,6 +13,7 @@ require_once dirname(__DIR__) . '/vendor/autoload.php';
 require_once dirname(__DIR__) . '/src/autoload.php';
 
 use Chubes4\OpenCodeAiProvider\Models\OpenCodeTextGenerationModel;
+use Chubes4\OpenCodeAiProvider\Metadata\OpenCodeModelMetadataDirectory;
 use Chubes4\OpenCodeAiProvider\Provider\OpenCodeProvider;
 use WordPress\AiClient\Messages\DTO\Message;
 use WordPress\AiClient\Messages\DTO\MessagePart;
@@ -128,9 +129,11 @@ $goModel  = OpenCodeProvider::model('opencode-go/kimi-k2.6');
 assert($zenModel instanceof OpenCodeTextGenerationModel);
 assert($goModel instanceof OpenCodeTextGenerationModel);
 
-$freshDirectory = OpenCodeProvider::modelMetadataDirectory();
-assert($freshDirectory->hasModelMetadata('opencode-go/kimi-k2.6'));
-assert(OpenCodeProvider::model('opencode-go/kimi-k2.6') instanceof OpenCodeTextGenerationModel);
+$freshDirectory = new OpenCodeModelMetadataDirectory();
+assert(count($freshDirectory->listModelMetadata()) === 3);
+assert(!$freshDirectory->hasModelMetadata('opencode-go/kimi-k2.6'));
+assert($freshDirectory->hasModelMetadata('opencode-go/local-go-model'));
+assert(OpenCodeProvider::model('opencode-go/local-go-model') instanceof OpenCodeTextGenerationModel);
 
 $transport = new CapturingTransporter();
 $goModel->setHttpTransporter($transport);
