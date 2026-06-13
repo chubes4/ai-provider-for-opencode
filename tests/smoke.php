@@ -24,45 +24,19 @@ use WordPress\AiClient\Providers\Http\DTO\Request;
 use WordPress\AiClient\Providers\Http\DTO\RequestOptions;
 use WordPress\AiClient\Providers\Http\DTO\Response;
 
-$tempRoot = sys_get_temp_dir() . '/ai-provider-for-opencode-smoke-' . getmypid();
-$configDir = $tempRoot . '/config/opencode';
-$dataDir = $tempRoot . '/data/opencode';
-$stateDir = $tempRoot . '/state/opencode';
-mkdir($configDir, 0777, true);
-mkdir($dataDir, 0777, true);
-mkdir($stateDir, 0777, true);
+$fixtureRoot = __DIR__ . '/fixtures/sandbox-state';
+$configPath  = $fixtureRoot . '/mounted-opencode.json';
+$dataHome    = $fixtureRoot . '/xdg-data-home';
+$stateHome   = $fixtureRoot . '/xdg-state-home';
+$emptyRoot   = sys_get_temp_dir() . '/ai-provider-for-opencode-empty-' . getmypid();
+mkdir($emptyRoot . '/config', 0777, true);
+mkdir($emptyRoot . '/data', 0777, true);
+mkdir($emptyRoot . '/state', 0777, true);
 
-$configPath = $tempRoot . '/opencode.json';
-file_put_contents($configPath, json_encode([
-    '$schema' => 'https://opencode.ai/config.json',
-    'provider' => [
-        'deterministic-provider' => [
-            'name' => 'Deterministic Provider',
-            'models' => [
-                'deterministic-v2' => ['name' => 'Deterministic V2'],
-            ],
-        ],
-        'opencode-go' => [
-            'name' => 'OpenCode Go Local',
-            'models' => [
-                'local-go-model' => ['name' => 'Local Go Model'],
-            ],
-        ],
-    ],
-    'model' => 'deterministic-provider/deterministic-v2',
-], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
-file_put_contents($stateDir . '/model.json', json_encode([
-    'recent' => [
-        ['providerID' => 'anthropic', 'modelID' => 'claude-local'],
-    ],
-], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
-file_put_contents($dataDir . '/auth.json', json_encode([
-    'opencode-go' => ['type' => 'api', 'key' => 'local-go-test-key'],
-], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
 putenv('OPENCODE_CONFIG=' . $configPath);
-putenv('XDG_CONFIG_HOME=' . $tempRoot . '/config');
-putenv('XDG_DATA_HOME=' . $tempRoot . '/data');
-putenv('XDG_STATE_HOME=' . $tempRoot . '/state');
+putenv('XDG_CONFIG_HOME=' . $emptyRoot . '/config');
+putenv('XDG_DATA_HOME=' . $dataHome);
+putenv('XDG_STATE_HOME=' . $stateHome);
 
 final class CapturingTransporter implements HttpTransporterInterface
 {
@@ -130,10 +104,25 @@ assert($zenModel instanceof OpenCodeTextGenerationModel);
 assert($goModel instanceof OpenCodeTextGenerationModel);
 
 $freshDirectory = new OpenCodeModelMetadataDirectory();
-assert(count($freshDirectory->listModelMetadata()) === 3);
-assert(!$freshDirectory->hasModelMetadata('opencode-go/kimi-k2.6'));
+assert(count($freshDirectory->listModelMetadata()) === 17);
+assert($freshDirectory->hasModelMetadata('opencode/kimi-k2.6'));
+assert($freshDirectory->hasModelMetadata('opencode-go/kimi-k2.6'));
 assert($freshDirectory->hasModelMetadata('opencode-go/local-go-model'));
 assert(OpenCodeProvider::model('opencode-go/local-go-model') instanceof OpenCodeTextGenerationModel);
+
+putenv('OPENCODE_CONFIG=' . $emptyRoot . '/missing-opencode.json');
+putenv('XDG_CONFIG_HOME=' . $emptyRoot . '/config');
+putenv('XDG_DATA_HOME=' . $emptyRoot . '/data');
+putenv('XDG_STATE_HOME=' . $emptyRoot . '/state');
+
+$fallbackDirectory = new OpenCodeModelMetadataDirectory();
+assert(count($fallbackDirectory->listModelMetadata()) === 14);
+assert($fallbackDirectory->hasModelMetadata('opencode/kimi-k2.6'));
+assert($fallbackDirectory->hasModelMetadata('opencode-go/deepseek-v4-flash'));
+
+putenv('OPENCODE_CONFIG=' . $configPath);
+putenv('XDG_DATA_HOME=' . $dataHome);
+putenv('XDG_STATE_HOME=' . $stateHome);
 
 $transport = new CapturingTransporter();
 $goModel->setHttpTransporter($transport);
@@ -155,6 +144,9 @@ $localAuthModel->generateTextResult([
 ]);
 
 assert($localAuthTransport->request instanceof Request);
-assert($localAuthTransport->request->getHeaderAsString('Authorization') === 'Bearer local-go-test-key');
+$authFixture = json_decode(file_get_contents($dataHome . '/opencode/auth.json'), true, 512, JSON_THROW_ON_ERROR);
+$authorizationHash = hash('sha256', $localAuthTransport->request->getHeaderAsString('Authorization'));
+$expectedAuthHash  = hash('sha256', 'Bearer ' . $authFixture['opencode-go']['key']);
+assert($authorizationHash === $expectedAuthHash);
 
 fwrite(STDOUT, "OpenCode provider smoke passed.\n");
