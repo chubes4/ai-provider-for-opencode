@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Chubes4\OpenCodeAiProvider\Models;
 
 use Chubes4\OpenCodeAiProvider\Provider\OpenCodeProvider;
+use Chubes4\OpenCodeAiProvider\Support\OpenCodeLocalState;
+use WordPress\AiClient\Providers\Http\Contracts\RequestAuthenticationInterface;
+use WordPress\AiClient\Providers\Http\DTO\ApiKeyRequestAuthentication;
 use WordPress\AiClient\Providers\Http\DTO\Request;
 use WordPress\AiClient\Providers\Http\Enums\HttpMethodEnum;
 use WordPress\AiClient\Providers\OpenAiCompatibleImplementation\AbstractOpenAiCompatibleTextGenerationModel;
@@ -14,6 +17,21 @@ use WordPress\AiClient\Providers\OpenAiCompatibleImplementation\AbstractOpenAiCo
  */
 class OpenCodeTextGenerationModel extends AbstractOpenAiCompatibleTextGenerationModel
 {
+    public function getRequestAuthentication(): RequestAuthenticationInterface
+    {
+        try {
+            return parent::getRequestAuthentication();
+        } catch (\Throwable $e) {
+            $surface = strpos($this->metadata()->getId(), 'opencode-go/') === 0 ? 'opencode-go' : 'opencode';
+            $key = OpenCodeLocalState::apiKeyForSurface($surface);
+            if ('' !== $key) {
+                return new ApiKeyRequestAuthentication($key);
+            }
+
+            throw $e;
+        }
+    }
+
     /**
      * {@inheritDoc}
      */
