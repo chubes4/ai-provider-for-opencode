@@ -1,0 +1,22 @@
+{
+  "auto_cleanup": false,
+  "extensions": {
+    "wordpress": {}
+  },
+  "id": "ai-provider-for-opencode",
+  "remote_path": "wp-content/plugins/ai-provider-for-opencode",
+  "scripts": {
+    "lint": [
+      "for file in plugin.php src/**/*.php tests/*.php; do php -l \"$file\" || exit 1; done"
+    ],
+    "test": [
+      "php -d zend.assertions=1 -d assert.exception=1 tests/smoke.php"
+    ]
+  },
+  "version_targets": [
+    {
+      "file": "plugin.php",
+      "pattern": "Version:\\s*([0-9.]+)"
+    }
+  ]
+}
