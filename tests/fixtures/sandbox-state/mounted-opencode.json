@@ -16,6 +16,14 @@
                     "name": "Local Go Model"
                 }
             }
+        },
+        "oauth-provider": {
+            "name": "OAuth Provider",
+            "models": {
+                "oauth-model": {
+                    "name": "OAuth Model"
+                }
+            }
         }
     },
     "model": "deterministic-provider/deterministic-v2"

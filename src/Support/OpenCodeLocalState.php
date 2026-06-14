@@ -50,7 +50,7 @@ class OpenCodeLocalState
             return '';
         }
 
-        $key = $entry['key'] ?? '';
+        $key = $entry['key'] ?? $entry['access'] ?? '';
 
         return is_string($key) ? $key : '';
     }
