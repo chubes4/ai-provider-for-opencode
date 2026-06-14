@@ -60,7 +60,7 @@ class OpenCodeProvider extends AbstractApiProvider
         foreach ($modelMetadata->getSupportedCapabilities() as $capability) {
             if ($capability->isTextGeneration()) {
                 $model = new OpenCodeTextGenerationModel($modelMetadata, $providerMetadata);
-                $key = OpenCodeLocalState::apiKeyForSurface(static::authSurfaceForModel($modelMetadata->getId()));
+                $key = OpenCodeLocalState::apiKeyForSurfaces(static::authSurfacesForModel($modelMetadata->getId()));
 
                 if ('' !== $key) {
                     $model->setRequestAuthentication(new ApiKeyRequestAuthentication($key));
@@ -81,19 +81,30 @@ class OpenCodeProvider extends AbstractApiProvider
      */
     public static function authSurfaceForModel(string $modelId): string
     {
+        return self::authSurfacesForModel($modelId)[0];
+    }
+
+    /**
+     * Returns ordered OpenCode auth surfaces for a provider model ID.
+     *
+     * @param string $modelId The provider model ID.
+     * @return array<int, string> The OpenCode auth surfaces.
+     */
+    public static function authSurfacesForModel(string $modelId): array
+    {
         if (strpos($modelId, 'opencode-go/') === 0) {
-            return 'opencode-go';
+            return ['opencode-go'];
         }
 
         if (strpos($modelId, 'opencode/') === 0) {
             $apiModelId = substr($modelId, strlen('opencode/'));
             $parts = explode('/', $apiModelId, 2);
             if (2 === count($parts) && '' !== $parts[0]) {
-                return $parts[0];
+                return [$parts[0]];
             }
         }
 
-        return 'opencode';
+        return ['opencode', 'openai'];
     }
 
     /**
