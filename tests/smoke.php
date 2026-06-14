@@ -99,13 +99,14 @@ $directory = OpenCodeProvider::modelMetadataDirectory();
 $directory->setHttpTransporter(new CapturingTransporter());
 $directory->setRequestAuthentication(new ApiKeyRequestAuthentication('test-key'));
 $models    = $directory->listModelMetadata();
-expect(count($models) === 7, 'Authenticated model listing should include live and local configured models.');
+expect(count($models) === 8, 'Authenticated model listing should include live and local configured models.');
 expect($directory->hasModelMetadata('opencode/kimi-k2.6'), 'Zen model metadata should be present.');
 expect($directory->hasModelMetadata('opencode-go/kimi-k2.6'), 'Go model metadata should be present.');
 expect($directory->hasModelMetadata('opencode-go/deepseek-v4-flash'), 'Go live model metadata should be present.');
 expect($directory->hasModelMetadata('opencode/deterministic-provider/deterministic-v2'), 'Configured provider model metadata should be present.');
 expect($directory->hasModelMetadata('opencode-go/local-go-model'), 'Configured Go model metadata should be present.');
 expect($directory->hasModelMetadata('opencode/anthropic/claude-local'), 'Configured Anthropic model metadata should be present.');
+expect($directory->hasModelMetadata('opencode/oauth-provider/oauth-model'), 'Configured OAuth provider model metadata should be present.');
 
 expect(OpenCodeProvider::baseUrlForModel('opencode/kimi-k2.6') === OpenCodeProvider::ZEN_BASE_URL, 'Zen model should use Zen base URL.');
 expect(OpenCodeProvider::baseUrlForModel('opencode-go/kimi-k2.6') === OpenCodeProvider::GO_BASE_URL, 'Go model should use Go base URL.');
@@ -119,7 +120,7 @@ expect($zenModel instanceof OpenCodeTextGenerationModel, 'Zen provider model sho
 expect($goModel instanceof OpenCodeTextGenerationModel, 'Go provider model should be an OpenCode text model.');
 
 $freshDirectory = new OpenCodeModelMetadataDirectory();
-expect(count($freshDirectory->listModelMetadata()) === 3, 'Fresh directory should expose local configured models without static fallback models.');
+expect(count($freshDirectory->listModelMetadata()) === 4, 'Fresh directory should expose local configured models without static fallback models.');
 expect($freshDirectory->hasModelMetadata('opencode-go/local-go-model'), 'Fresh directory should include local Go model metadata.');
 expect(OpenCodeProvider::model('opencode-go/local-go-model') instanceof OpenCodeTextGenerationModel, 'Provider should create configured Go text model.');
 
@@ -197,6 +198,18 @@ $configuredAuthorizationHash = hash('sha256', $configuredAuthTransport->request-
 $expectedConfiguredAuthHash  = hash('sha256', 'Bearer ' . $authFixture['deterministic-provider']['key']);
 expect($configuredAuthorizationHash === $expectedConfiguredAuthHash, 'Configured provider model execution should use provider-specific mounted auth state.');
 expect($configuredAuthTransport->request->getData()['model'] === 'deterministic-provider/deterministic-v2', 'Configured provider model request should preserve provider-qualified API model ID.');
+
+$oauthAuthModel = OpenCodeProvider::model('opencode/oauth-provider/oauth-model');
+$oauthAuthTransport = new CapturingTransporter();
+$oauthAuthModel->setHttpTransporter($oauthAuthTransport);
+$oauthAuthModel->generateTextResult([
+    new Message(MessageRoleEnum::user(), [new MessagePart('hello')]),
+]);
+
+expect($oauthAuthTransport->request instanceof Request, 'Configured OAuth provider model execution should send a request.');
+$oauthAuthorizationHash = hash('sha256', $oauthAuthTransport->request->getHeaderAsString('Authorization'));
+$expectedOauthAuthHash = hash('sha256', 'Bearer ' . $authFixture['oauth-provider']['access']);
+expect($oauthAuthorizationHash === $expectedOauthAuthHash, 'Configured OAuth provider model execution should use mounted OpenCode access state.');
 
 $registryTransport = new CapturingTransporter();
 $registry = new ProviderRegistry();
