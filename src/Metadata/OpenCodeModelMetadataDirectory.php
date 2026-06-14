@@ -29,16 +29,11 @@ class OpenCodeModelMetadataDirectory extends AbstractApiBasedModelMetadataDirect
      */
     protected function sendListModelsRequest(): array
     {
-        try {
-            $metadata = array_merge(
-                $this->listSurfaceModels('opencode', 'OpenCode Zen', 'https://opencode.ai/zen/v1'),
-                $this->listSurfaceModels('opencode-go', 'OpenCode Go', 'https://opencode.ai/zen/go/v1')
-            );
-        } catch (\Throwable $e) {
-            $metadata = $this->fallbackModelMetadata();
-        }
-
-        $metadata = array_merge($metadata, $this->localConfiguredModelMetadata());
+        $metadata = array_merge(
+            $this->availableSurfaceModels('opencode', 'OpenCode Zen', 'https://opencode.ai/zen/v1'),
+            $this->availableSurfaceModels('opencode-go', 'OpenCode Go', 'https://opencode.ai/zen/go/v1'),
+            $this->localConfiguredModelMetadata()
+        );
 
         /**
          * Filters the OpenCode models exposed to the WordPress AI Client.
@@ -47,63 +42,6 @@ class OpenCodeModelMetadataDirectory extends AbstractApiBasedModelMetadataDirect
          */
         if (function_exists('apply_filters')) {
             return \apply_filters('ai_provider_for_opencode_model_metadata', $metadata);
-        }
-
-        return $metadata;
-    }
-
-    /**
-     * Returns static model metadata when live discovery is unavailable.
-     *
-     * Model lookup can happen before request authentication is attached to the
-     * directory. Keep the provider usable in that path while live discovery
-     * remains available for authenticated registries.
-     *
-     * @return array<string, ModelMetadata>
-     */
-    private function fallbackModelMetadata(): array
-    {
-        return array_merge(
-            $this->staticSurfaceModels('opencode', 'OpenCode Zen', [
-                'kimi-k2.6',
-                'kimi-k2.5',
-                'qwen3.6-plus',
-                'qwen3.5-plus',
-                'glm-5.1',
-                'glm-5',
-            ]),
-            $this->staticSurfaceModels('opencode-go', 'OpenCode Go', [
-                'kimi-k2.6',
-                'kimi-k2.5',
-                'qwen3.6-plus',
-                'qwen3.5-plus',
-                'glm-5.1',
-                'glm-5',
-                'deepseek-v4-pro',
-                'deepseek-v4-flash',
-            ])
-        );
-    }
-
-    /**
-     * Builds static metadata for one OpenCode API surface.
-     *
-     * @param string       $prefix WordPress-facing model ID prefix.
-     * @param string       $labelPrefix Display-name prefix.
-     * @param list<string> $modelIds Bare OpenCode model IDs.
-     * @return array<string, ModelMetadata>
-     */
-    private function staticSurfaceModels(string $prefix, string $labelPrefix, array $modelIds): array
-    {
-        $metadata = [];
-        foreach ($modelIds as $modelId) {
-            $id = $this->providerModelId($prefix, $modelId);
-            $metadata[$id] = new ModelMetadata(
-                $id,
-                $labelPrefix . ' ' . $modelId,
-                [CapabilityEnum::textGeneration(), CapabilityEnum::chatHistory()],
-                $this->textOptions()
-            );
         }
 
         return $metadata;
@@ -165,6 +103,23 @@ class OpenCodeModelMetadataDirectory extends AbstractApiBasedModelMetadataDirect
         ResponseUtil::throwIfNotSuccessful($response);
 
         return $this->responseToModelMetadata($response, $prefix, $labelPrefix);
+    }
+
+    /**
+     * Lists models for one OpenCode API surface when that surface is reachable.
+     *
+     * @param string $prefix The WordPress-facing model ID prefix.
+     * @param string $labelPrefix Display-name prefix.
+     * @param string $baseUrl OpenCode API base URL.
+     * @return array<string, ModelMetadata>
+     */
+    private function availableSurfaceModels(string $prefix, string $labelPrefix, string $baseUrl): array
+    {
+        try {
+            return $this->listSurfaceModels($prefix, $labelPrefix, $baseUrl);
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 
     /**

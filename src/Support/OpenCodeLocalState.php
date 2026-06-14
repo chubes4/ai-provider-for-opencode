@@ -75,13 +75,17 @@ class OpenCodeLocalState
         if ('' !== $home) {
             $paths[] = $home . '/.kimaki/opencode-config.json';
             $paths[] = $home . '/.config/opencode/opencode.json';
+            $paths[] = $home . '/.config/opencode/opencode.jsonc';
             $paths[] = $home . '/.config/opencode/config.json';
+            $paths[] = $home . '/.config/opencode/config.jsonc';
         }
 
         $xdgConfig = getenv('XDG_CONFIG_HOME');
         if (is_string($xdgConfig) && '' !== $xdgConfig) {
             $paths[] = rtrim($xdgConfig, '/') . '/opencode/opencode.json';
+            $paths[] = rtrim($xdgConfig, '/') . '/opencode/opencode.jsonc';
             $paths[] = rtrim($xdgConfig, '/') . '/opencode/config.json';
+            $paths[] = rtrim($xdgConfig, '/') . '/opencode/config.jsonc';
         }
 
         return array_values(array_unique($paths));
@@ -217,8 +221,65 @@ class OpenCodeLocalState
         }
 
         $decoded = json_decode($raw, true);
+        if (JSON_ERROR_NONE !== json_last_error()) {
+            $decoded = json_decode(self::stripJsonComments($raw), true);
+        }
 
         return JSON_ERROR_NONE === json_last_error() ? $decoded : null;
+    }
+
+    private static function stripJsonComments(string $raw): string
+    {
+        $result = '';
+        $length = strlen($raw);
+        $inString = false;
+        $escaped = false;
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $raw[$i];
+            $next = $raw[$i + 1] ?? '';
+
+            if ($inString) {
+                $result .= $char;
+                if ($escaped) {
+                    $escaped = false;
+                } elseif ('\\' === $char) {
+                    $escaped = true;
+                } elseif ('"' === $char) {
+                    $inString = false;
+                }
+                continue;
+            }
+
+            if ('"' === $char) {
+                $inString = true;
+                $result .= $char;
+                continue;
+            }
+
+            if ('/' === $char && '/' === $next) {
+                while ($i < $length && "\n" !== $raw[$i]) {
+                    $i++;
+                }
+                if ($i < $length) {
+                    $result .= $raw[$i];
+                }
+                continue;
+            }
+
+            if ('/' === $char && '*' === $next) {
+                $i += 2;
+                while ($i < $length && !('*' === $raw[$i] && '/' === ($raw[$i + 1] ?? ''))) {
+                    $i++;
+                }
+                $i++;
+                continue;
+            }
+
+            $result .= $char;
+        }
+
+        return preg_replace('/,\s*([}\]])/', '$1', $result) ?? $result;
     }
 
     private static function homeDir(): string

@@ -41,8 +41,11 @@ $emptyRoot   = sys_get_temp_dir() . '/ai-provider-for-opencode-empty-' . getmypi
 mkdir($emptyRoot . '/config', 0777, true);
 mkdir($emptyRoot . '/data', 0777, true);
 mkdir($emptyRoot . '/state', 0777, true);
+mkdir($emptyRoot . '/home', 0777, true);
+mkdir($emptyRoot . '/jsonc-config/opencode', 0777, true);
 
 putenv('OPENCODE_CONFIG=' . $configPath);
+putenv('HOME=' . $emptyRoot . '/home');
 putenv('XDG_CONFIG_HOME=' . $emptyRoot . '/config');
 putenv('XDG_DATA_HOME=' . $dataHome);
 putenv('XDG_STATE_HOME=' . $stateHome);
@@ -113,9 +116,7 @@ expect($zenModel instanceof OpenCodeTextGenerationModel, 'Zen provider model sho
 expect($goModel instanceof OpenCodeTextGenerationModel, 'Go provider model should be an OpenCode text model.');
 
 $freshDirectory = new OpenCodeModelMetadataDirectory();
-expect(count($freshDirectory->listModelMetadata()) === 17, 'Fresh directory should fall back to static plus local configured models.');
-expect($freshDirectory->hasModelMetadata('opencode/kimi-k2.6'), 'Fresh directory should include Zen fallback model metadata.');
-expect($freshDirectory->hasModelMetadata('opencode-go/kimi-k2.6'), 'Fresh directory should include Go fallback model metadata.');
+expect(count($freshDirectory->listModelMetadata()) === 3, 'Fresh directory should expose local configured models without static fallback models.');
 expect($freshDirectory->hasModelMetadata('opencode-go/local-go-model'), 'Fresh directory should include local Go model metadata.');
 expect(OpenCodeProvider::model('opencode-go/local-go-model') instanceof OpenCodeTextGenerationModel, 'Provider should create configured Go text model.');
 
@@ -125,11 +126,34 @@ putenv('XDG_DATA_HOME=' . $emptyRoot . '/data');
 putenv('XDG_STATE_HOME=' . $emptyRoot . '/state');
 
 $fallbackDirectory = new OpenCodeModelMetadataDirectory();
-expect(count($fallbackDirectory->listModelMetadata()) === 14, 'Empty state should expose static fallback models.');
-expect($fallbackDirectory->hasModelMetadata('opencode/kimi-k2.6'), 'Fallback directory should include Zen static model.');
-expect($fallbackDirectory->hasModelMetadata('opencode-go/deepseek-v4-flash'), 'Fallback directory should include Go static model.');
+expect(count($fallbackDirectory->listModelMetadata()) === 0, 'Empty state should not expose static fallback models.');
+
+file_put_contents($emptyRoot . '/jsonc-config/opencode/opencode.jsonc', <<<'JSONC'
+{
+    // OpenCode accepts provider/model pairs from configured providers.
+    "provider": {
+        "dynamic-provider": {
+            "name": "Dynamic Provider",
+            "models": {
+                "dynamic-model": {
+                    "name": "Dynamic Model",
+                },
+            },
+        },
+    },
+    "model": "second-provider/second-model",
+}
+JSONC);
+putenv('OPENCODE_CONFIG');
+putenv('XDG_CONFIG_HOME=' . $emptyRoot . '/jsonc-config');
+
+$jsoncDirectory = new OpenCodeModelMetadataDirectory();
+expect(count($jsoncDirectory->listModelMetadata()) === 2, 'JSONC config should expose configured models dynamically.');
+expect($jsoncDirectory->hasModelMetadata('opencode/dynamic-provider/dynamic-model'), 'JSONC provider model metadata should be present.');
+expect($jsoncDirectory->hasModelMetadata('opencode/second-provider/second-model'), 'JSONC selected model metadata should be present.');
 
 putenv('OPENCODE_CONFIG=' . $configPath);
+putenv('XDG_CONFIG_HOME=' . $emptyRoot . '/config');
 putenv('XDG_DATA_HOME=' . $dataHome);
 putenv('XDG_STATE_HOME=' . $stateHome);
 
