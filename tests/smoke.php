@@ -109,6 +109,9 @@ expect($directory->hasModelMetadata('opencode/anthropic/claude-local'), 'Configu
 
 expect(OpenCodeProvider::baseUrlForModel('opencode/kimi-k2.6') === OpenCodeProvider::ZEN_BASE_URL, 'Zen model should use Zen base URL.');
 expect(OpenCodeProvider::baseUrlForModel('opencode-go/kimi-k2.6') === OpenCodeProvider::GO_BASE_URL, 'Go model should use Go base URL.');
+expect(OpenCodeProvider::authSurfaceForModel('opencode/kimi-k2.6') === 'opencode', 'Bare Zen model should use OpenCode auth.');
+expect(OpenCodeProvider::authSurfaceForModel('opencode/deterministic-provider/deterministic-v2') === 'deterministic-provider', 'Configured provider model should use its provider auth.');
+expect(OpenCodeProvider::authSurfaceForModel('opencode-go/kimi-k2.6') === 'opencode-go', 'Go model should use Go auth.');
 
 $zenModel = OpenCodeProvider::model('opencode/kimi-k2.6');
 $goModel  = OpenCodeProvider::model('opencode-go/kimi-k2.6');
@@ -181,6 +184,19 @@ $authFixture = json_decode(file_get_contents($dataHome . '/opencode/auth.json'),
 $authorizationHash = hash('sha256', $localAuthTransport->request->getHeaderAsString('Authorization'));
 $expectedAuthHash  = hash('sha256', 'Bearer ' . $authFixture['opencode-go']['key']);
 expect($authorizationHash === $expectedAuthHash, 'Local-auth direct provider model execution should use mounted OpenCode auth state.');
+
+$configuredAuthModel = OpenCodeProvider::model('opencode/deterministic-provider/deterministic-v2');
+$configuredAuthTransport = new CapturingTransporter();
+$configuredAuthModel->setHttpTransporter($configuredAuthTransport);
+$configuredAuthModel->generateTextResult([
+    new Message(MessageRoleEnum::user(), [new MessagePart('hello')]),
+]);
+
+expect($configuredAuthTransport->request instanceof Request, 'Configured provider model execution should send a request.');
+$configuredAuthorizationHash = hash('sha256', $configuredAuthTransport->request->getHeaderAsString('Authorization'));
+$expectedConfiguredAuthHash  = hash('sha256', 'Bearer ' . $authFixture['deterministic-provider']['key']);
+expect($configuredAuthorizationHash === $expectedConfiguredAuthHash, 'Configured provider model execution should use provider-specific mounted auth state.');
+expect($configuredAuthTransport->request->getData()['model'] === 'deterministic-provider/deterministic-v2', 'Configured provider model request should preserve provider-qualified API model ID.');
 
 $registryTransport = new CapturingTransporter();
 $registry = new ProviderRegistry();

@@ -60,7 +60,7 @@ class OpenCodeProvider extends AbstractApiProvider
         foreach ($modelMetadata->getSupportedCapabilities() as $capability) {
             if ($capability->isTextGeneration()) {
                 $model = new OpenCodeTextGenerationModel($modelMetadata, $providerMetadata);
-                $key = OpenCodeLocalState::apiKeyForSurface(static::surfaceForModel($modelMetadata->getId()));
+                $key = OpenCodeLocalState::apiKeyForSurface(static::authSurfaceForModel($modelMetadata->getId()));
 
                 if ('' !== $key) {
                     $model->setRequestAuthentication(new ApiKeyRequestAuthentication($key));
@@ -79,9 +79,21 @@ class OpenCodeProvider extends AbstractApiProvider
      * @param string $modelId The provider model ID.
      * @return string The OpenCode auth surface.
      */
-    private static function surfaceForModel(string $modelId): string
+    public static function authSurfaceForModel(string $modelId): string
     {
-        return strpos($modelId, 'opencode-go/') === 0 ? 'opencode-go' : 'opencode';
+        if (strpos($modelId, 'opencode-go/') === 0) {
+            return 'opencode-go';
+        }
+
+        if (strpos($modelId, 'opencode/') === 0) {
+            $apiModelId = substr($modelId, strlen('opencode/'));
+            $parts = explode('/', $apiModelId, 2);
+            if (2 === count($parts) && '' !== $parts[0]) {
+                return $parts[0];
+            }
+        }
+
+        return 'opencode';
     }
 
     /**
