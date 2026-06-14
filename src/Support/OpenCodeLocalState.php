@@ -40,19 +40,32 @@ class OpenCodeLocalState
 
     public static function apiKeyForSurface(string $surface): string
     {
+        return self::apiKeyForSurfaces([$surface]);
+    }
+
+    /**
+     * @param array<int, string> $surfaces Ordered OpenCode auth surface names.
+     */
+    public static function apiKeyForSurfaces(array $surfaces): string
+    {
         $auth = self::readJsonFile(self::authPath());
         if (!is_array($auth)) {
             return '';
         }
 
-        $entry = $auth[$surface] ?? null;
-        if (!is_array($entry)) {
-            return '';
+        foreach ($surfaces as $surface) {
+            $entry = $auth[$surface] ?? null;
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $key = $entry['key'] ?? $entry['access'] ?? '';
+            if (is_string($key) && '' !== $key) {
+                return $key;
+            }
         }
 
-        $key = $entry['key'] ?? $entry['access'] ?? '';
-
-        return is_string($key) ? $key : '';
+        return '';
     }
 
     /**

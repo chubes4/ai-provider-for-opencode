@@ -22,7 +22,7 @@ class OpenCodeTextGenerationModel extends AbstractOpenAiCompatibleTextGeneration
         try {
             return parent::getRequestAuthentication();
         } catch (\Throwable $e) {
-            $key = OpenCodeLocalState::apiKeyForSurface(OpenCodeProvider::authSurfaceForModel($this->metadata()->getId()));
+            $key = OpenCodeLocalState::apiKeyForSurfaces(OpenCodeProvider::authSurfacesForModel($this->metadata()->getId()));
             if ('' !== $key) {
                 return new ApiKeyRequestAuthentication($key);
             }
