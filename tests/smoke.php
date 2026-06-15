@@ -50,6 +50,8 @@ putenv('XDG_CONFIG_HOME=' . $emptyRoot . '/config');
 putenv('XDG_DATA_HOME=' . $dataHome);
 putenv('XDG_STATE_HOME=' . $stateHome);
 putenv('OPENCODE_TEST_ENV_PROVIDER_KEY=fixture-env-provider-test-key');
+putenv('OPENCODE_TEST_CATALOG_PROVIDER_KEY=fixture-catalog-provider-test-key');
+putenv('OPENCODE_MODELS_PATH=' . $fixtureRoot . '/models-dev.json');
 
 final class CapturingTransporter implements HttpTransporterInterface
 {
@@ -100,7 +102,7 @@ $directory = OpenCodeProvider::modelMetadataDirectory();
 $directory->setHttpTransporter(new CapturingTransporter());
 $directory->setRequestAuthentication(new ApiKeyRequestAuthentication('test-key'));
 $models    = $directory->listModelMetadata();
-expect(count($models) === 11, 'Authenticated model listing should include live and local configured models.');
+expect(count($models) === 12, 'Authenticated model listing should include live and local configured models.');
 expect($directory->hasModelMetadata('opencode/zen-live-model-one'), 'Zen model metadata should be present.');
 expect($directory->hasModelMetadata('opencode-go/go-live-model-one'), 'Go model metadata should be present.');
 expect($directory->hasModelMetadata('opencode-go/go-live-model-two'), 'Go live model metadata should be present.');
@@ -110,6 +112,7 @@ expect($directory->hasModelMetadata('opencode/recent-provider/recent-model'), 'R
 expect($directory->hasModelMetadata('opencode/oauth-provider/oauth-model'), 'Configured OAuth provider model metadata should be present.');
 expect($directory->hasModelMetadata('opencode/env-provider/env-model'), 'Configured env provider model metadata should be present.');
 expect($directory->hasModelMetadata('opencode/config-key-provider/config-key-model'), 'Configured key provider model metadata should be present.');
+expect($directory->hasModelMetadata('opencode/catalog-provider/catalog-model'), 'Configured catalog provider model metadata should be present.');
 
 expect(OpenCodeProvider::baseUrlForModel('opencode/zen-live-model-one') === OpenCodeProvider::ZEN_BASE_URL, 'Zen model should use Zen base URL.');
 expect(OpenCodeProvider::baseUrlForModel('opencode-go/go-live-model-one') === OpenCodeProvider::GO_BASE_URL, 'Go model should use Go base URL.');
@@ -117,6 +120,7 @@ expect(OpenCodeProvider::baseUrlForModel('opencode/deterministic-provider/determ
 expect(OpenCodeProvider::baseUrlForModel('opencode/oauth-provider/oauth-model') === 'https://oauth-provider.local/v1', 'Configured provider model should use local config API URL.');
 expect(OpenCodeProvider::baseUrlForModel('opencode/env-provider/env-model') === 'https://env-provider.local/v1', 'Configured provider model should use local config env provider base URL.');
 expect(OpenCodeProvider::baseUrlForModel('opencode/config-key-provider/config-key-model') === 'https://config-key-provider.local/v1', 'Configured provider model should use local config key provider base URL.');
+expect(OpenCodeProvider::baseUrlForModel('opencode/catalog-provider/catalog-model') === 'https://catalog-provider.local/v1', 'Configured provider model should use models catalog base URL when config omits one.');
 expect(OpenCodeProvider::authSurfaceForModel('opencode/zen-live-model-one') === 'opencode', 'Bare Zen model should use OpenCode auth.');
 expect(OpenCodeProvider::authSurfacesForModel('opencode/zen-live-model-one') === ['opencode'], 'Bare Zen model should only use OpenCode auth.');
 expect(OpenCodeProvider::authSurfaceForModel('opencode/deterministic-provider/deterministic-v2') === 'deterministic-provider', 'Configured provider model should use its provider auth.');
@@ -128,7 +132,7 @@ expect($zenModel instanceof OpenCodeTextGenerationModel, 'Zen provider model sho
 expect($goModel instanceof OpenCodeTextGenerationModel, 'Go provider model should be an OpenCode text model.');
 
 $freshDirectory = new OpenCodeModelMetadataDirectory();
-expect(count($freshDirectory->listModelMetadata()) === 6, 'Fresh directory should expose local configured models without static fallback models.');
+expect(count($freshDirectory->listModelMetadata()) === 7, 'Fresh directory should expose local configured models without static fallback models.');
 expect($freshDirectory->hasModelMetadata('opencode-go/local-go-model'), 'Fresh directory should include local Go model metadata.');
 expect(OpenCodeProvider::model('opencode-go/local-go-model') instanceof OpenCodeTextGenerationModel, 'Provider should create configured Go text model.');
 
@@ -246,6 +250,19 @@ $configKeyAuthorizationHash = hash('sha256', $configKeyAuthTransport->request->g
 $expectedConfigKeyAuthHash = hash('sha256', 'Bearer fixture-config-provider-test-key');
 expect($configKeyAuthorizationHash === $expectedConfigKeyAuthHash, 'Configured key provider model execution should use local config credential.');
 expect($configKeyAuthTransport->request->getUri() === 'https://config-key-provider.local/v1/chat/completions', 'Configured key provider model execution should use local config base URL.');
+
+$catalogAuthModel = OpenCodeProvider::model('opencode/catalog-provider/catalog-model');
+$catalogAuthTransport = new CapturingTransporter();
+$catalogAuthModel->setHttpTransporter($catalogAuthTransport);
+$catalogAuthModel->generateTextResult([
+    new Message(MessageRoleEnum::user(), [new MessagePart('hello')]),
+]);
+
+expect($catalogAuthTransport->request instanceof Request, 'Configured catalog provider model execution should send a request.');
+$catalogAuthorizationHash = hash('sha256', $catalogAuthTransport->request->getHeaderAsString('Authorization'));
+$expectedCatalogAuthHash = hash('sha256', 'Bearer fixture-catalog-provider-test-key');
+expect($catalogAuthorizationHash === $expectedCatalogAuthHash, 'Configured catalog provider model execution should use declared environment credential.');
+expect($catalogAuthTransport->request->getUri() === 'https://catalog-provider.local/v1/chat/completions', 'Configured catalog provider model execution should use models catalog base URL.');
 
 $zenAuthModel = OpenCodeProvider::model('opencode/zen-live-model-three');
 $zenAuthTransport = new CapturingTransporter();

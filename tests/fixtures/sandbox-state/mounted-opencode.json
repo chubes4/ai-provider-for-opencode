@@ -52,6 +52,15 @@
                     "name": "Config Key Model"
                 }
             }
+        },
+        "catalog-provider": {
+            "name": "Catalog Provider",
+            "env": ["OPENCODE_TEST_CATALOG_PROVIDER_KEY"],
+            "models": {
+                "catalog-model": {
+                    "name": "Catalog Model"
+                }
+            }
         }
     },
     "model": "deterministic-provider/deterministic-v2"
