@@ -72,8 +72,24 @@ if (!is_string($key) || $key === '') {
     exit(2);
 }
 
+$directory = OpenCodeProvider::modelMetadataDirectory();
+$directory->setHttpTransporter(new CurlTransporter());
+$directory->setRequestAuthentication(new ApiKeyRequestAuthentication($key));
+$modelId = '';
+foreach ($directory->listModelMetadata() as $metadata) {
+    if (strpos($metadata->getId(), 'opencode-go/') === 0) {
+        $modelId = $metadata->getId();
+        break;
+    }
+}
+
+if ($modelId === '') {
+    fwrite(STDERR, "No OpenCode Go model found in live model listing.\n");
+    exit(2);
+}
+
 $model = OpenCodeProvider::model(
-    'opencode-go/qwen3.5-plus',
+    $modelId,
     ModelConfig::fromArray([
         ModelConfig::KEY_MAX_TOKENS => 64,
         ModelConfig::KEY_TEMPERATURE => 0.1,

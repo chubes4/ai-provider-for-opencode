@@ -123,7 +123,7 @@ class OpenCodeModelMetadataDirectory extends AbstractApiBasedModelMetadataDirect
     }
 
     /**
-     * Converts an OpenAI-compatible models response into WordPress AI metadata.
+     * Converts a chat-completions models response into WordPress AI metadata.
      *
      * @param Response $response The models response.
      * @param string   $prefix The WordPress-facing model ID prefix.

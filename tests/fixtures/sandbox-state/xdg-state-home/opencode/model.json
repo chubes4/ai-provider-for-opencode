@@ -1,8 +1,8 @@
 {
     "recent": [
         {
-            "providerID": "anthropic",
-            "modelID": "claude-local"
+            "providerID": "recent-provider",
+            "modelID": "recent-model"
         }
     ]
 }

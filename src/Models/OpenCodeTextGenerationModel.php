@@ -10,12 +10,11 @@ use WordPress\AiClient\Providers\Http\Contracts\RequestAuthenticationInterface;
 use WordPress\AiClient\Providers\Http\DTO\ApiKeyRequestAuthentication;
 use WordPress\AiClient\Providers\Http\DTO\Request;
 use WordPress\AiClient\Providers\Http\Enums\HttpMethodEnum;
-use WordPress\AiClient\Providers\OpenAiCompatibleImplementation\AbstractOpenAiCompatibleTextGenerationModel;
 
 /**
- * OpenAI-compatible text model for OpenCode Zen and Go.
+ * Chat-completions text model for OpenCode Zen and Go.
  */
-class OpenCodeTextGenerationModel extends AbstractOpenAiCompatibleTextGenerationModel
+class OpenCodeTextGenerationModel extends AbstractChatCompletionsTextGenerationModel
 {
     public function getRequestAuthentication(): RequestAuthenticationInterface
     {
@@ -61,8 +60,8 @@ class OpenCodeTextGenerationModel extends AbstractOpenAiCompatibleTextGeneration
     /**
      * Returns the model ID expected by the OpenCode API endpoint.
      *
-     * WordPress AI Client selections use OpenCode's provider-prefixed config
-     * IDs, while the OpenAI-compatible endpoint expects the bare model ID.
+     * WordPress AI Client selections use OpenCode's provider-prefixed config IDs,
+     * while configured routes keep their provider/model shape for OpenCode.
      *
      * @param string $modelId The provider-prefixed model ID.
      * @return string The endpoint model ID.
