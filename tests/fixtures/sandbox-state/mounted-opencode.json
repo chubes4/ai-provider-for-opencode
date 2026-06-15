@@ -3,6 +3,9 @@
     "provider": {
         "deterministic-provider": {
             "name": "Deterministic Provider",
+            "options": {
+                "baseURL": "https://deterministic-provider.local/v1"
+            },
             "models": {
                 "deterministic-v2": {
                     "name": "Deterministic V2"
@@ -19,9 +22,43 @@
         },
         "oauth-provider": {
             "name": "OAuth Provider",
+            "api": "https://oauth-provider.local/v1",
             "models": {
                 "oauth-model": {
                     "name": "OAuth Model"
+                }
+            }
+        },
+        "env-provider": {
+            "name": "Env Provider",
+            "env": ["OPENCODE_TEST_ENV_PROVIDER_KEY"],
+            "options": {
+                "baseURL": "https://env-provider.local/v1"
+            },
+            "models": {
+                "env-model": {
+                    "name": "Env Model"
+                }
+            }
+        },
+        "config-key-provider": {
+            "name": "Config Key Provider",
+            "options": {
+                "apiKey": "fixture-config-provider-test-key",
+                "baseURL": "https://config-key-provider.local/v1"
+            },
+            "models": {
+                "config-key-model": {
+                    "name": "Config Key Model"
+                }
+            }
+        },
+        "catalog-provider": {
+            "name": "Catalog Provider",
+            "env": ["OPENCODE_TEST_CATALOG_PROVIDER_KEY"],
+            "models": {
+                "catalog-model": {
+                    "name": "Catalog Model"
                 }
             }
         }

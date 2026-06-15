@@ -43,6 +43,45 @@ class OpenCodeLocalState
         return self::apiKeyForSurfaces([$surface]);
     }
 
+    public static function apiBaseUrlForModel(string $surface, string $model): string
+    {
+        foreach (self::configPaths() as $path) {
+            $config = self::readJsonFile($path);
+            if (!is_array($config)) {
+                continue;
+            }
+
+            $providers = $config['provider'] ?? [];
+            if (!is_array($providers) || !is_array($providers[$surface] ?? null)) {
+                continue;
+            }
+
+            $providerConfig = $providers[$surface];
+            $providerOptionsUrl = self::apiBaseUrlFromOptions($providerConfig['options'] ?? []);
+            if ('' !== $providerOptionsUrl) {
+                return $providerOptionsUrl;
+            }
+
+            $modelConfig = [];
+            $models = $providerConfig['models'] ?? [];
+            if (is_array($models) && is_array($models[$model] ?? null)) {
+                $modelConfig = $models[$model];
+            }
+
+            $modelProviderUrl = self::apiBaseUrlFromOptions($modelConfig['provider'] ?? []);
+            if ('' !== $modelProviderUrl) {
+                return $modelProviderUrl;
+            }
+
+            $providerUrl = self::apiBaseUrlFromOptions($providerConfig);
+            if ('' !== $providerUrl) {
+                return $providerUrl;
+            }
+        }
+
+        return self::apiBaseUrlFromModelsCatalog($surface, $model);
+    }
+
     /**
      * @param array<int, string> $surfaces Ordered OpenCode auth surface names.
      */
@@ -61,6 +100,13 @@ class OpenCodeLocalState
 
             $key = $entry['key'] ?? $entry['access'] ?? '';
             if (is_string($key) && '' !== $key) {
+                return $key;
+            }
+        }
+
+        foreach ($surfaces as $surface) {
+            $key = self::apiKeyFromConfig($surface);
+            if ('' !== $key) {
                 return $key;
             }
         }
@@ -112,6 +158,153 @@ class OpenCodeLocalState
         }
 
         return self::homeDir() . '/.local/share/opencode/auth.json';
+    }
+
+    private static function apiBaseUrlFromModelsCatalog(string $surface, string $model): string
+    {
+        $catalog = self::modelsCatalog();
+        if (!is_array($catalog) || !is_array($catalog[$surface] ?? null)) {
+            return '';
+        }
+
+        $provider = $catalog[$surface];
+        $models = $provider['models'] ?? [];
+        $modelConfig = is_array($models) && is_array($models[$model] ?? null) ? $models[$model] : [];
+
+        $modelProviderUrl = self::apiBaseUrlFromOptions($modelConfig['provider'] ?? []);
+        if ('' !== $modelProviderUrl) {
+            return $modelProviderUrl;
+        }
+
+        return self::apiBaseUrlFromOptions($provider);
+    }
+
+    private static function modelsCatalog(): ?array
+    {
+        foreach (self::modelsCatalogPaths() as $path) {
+            $catalog = self::readJsonFile($path);
+            if (is_array($catalog)) {
+                return $catalog;
+            }
+        }
+
+        if (self::modelsCatalogFetchDisabled()) {
+            return null;
+        }
+
+        $json = self::fetchModelsCatalogJson();
+        if ('' === $json) {
+            return null;
+        }
+
+        $catalog = json_decode($json, true);
+        return is_array($catalog) ? $catalog : null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function modelsCatalogPaths(): array
+    {
+        $paths = [];
+
+        $modelsPath = getenv('OPENCODE_MODELS_PATH');
+        if (is_string($modelsPath) && '' !== $modelsPath) {
+            $paths[] = $modelsPath;
+        }
+
+        $xdgCache = getenv('XDG_CACHE_HOME');
+        if (is_string($xdgCache) && '' !== $xdgCache) {
+            $paths[] = rtrim($xdgCache, '/') . '/opencode/models.json';
+        }
+
+        $home = self::homeDir();
+        if ('' !== $home) {
+            $paths[] = $home . '/.cache/opencode/models.json';
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    private static function modelsCatalogFetchDisabled(): bool
+    {
+        $disabled = getenv('OPENCODE_DISABLE_MODELS_FETCH');
+        return is_string($disabled) && '' !== $disabled && '0' !== $disabled;
+    }
+
+    private static function fetchModelsCatalogJson(): string
+    {
+        if (function_exists('wp_remote_get')) {
+            $response = wp_remote_get('https://models.dev/api.json', ['timeout' => 10]);
+            if (is_wp_error($response)) {
+                return '';
+            }
+
+            $body = wp_remote_retrieve_body($response);
+            return is_string($body) ? $body : '';
+        }
+
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => 10,
+            ],
+        ]);
+        $body = @file_get_contents('https://models.dev/api.json', false, $context);
+
+        return is_string($body) ? $body : '';
+    }
+
+    private static function apiBaseUrlFromOptions($options): string
+    {
+        if (!is_array($options)) {
+            return '';
+        }
+
+        foreach (['baseURL', 'baseUrl', 'base_url', 'endpoint', 'api', 'url'] as $key) {
+            $value = $options[$key] ?? null;
+            if (is_string($value) && preg_match('#^https?://#', $value)) {
+                return rtrim($value, '/');
+            }
+        }
+
+        return '';
+    }
+
+    private static function apiKeyFromConfig(string $surface): string
+    {
+        foreach (self::configPaths() as $path) {
+            $config = self::readJsonFile($path);
+            if (!is_array($config)) {
+                continue;
+            }
+
+            $providers = $config['provider'] ?? [];
+            if (!is_array($providers) || !is_array($providers[$surface] ?? null)) {
+                continue;
+            }
+
+            $providerConfig = $providers[$surface];
+            $env = $providerConfig['env'] ?? [];
+            if (is_array($env)) {
+                foreach ($env as $name) {
+                    if (!is_string($name) || '' === $name) {
+                        continue;
+                    }
+
+                    $value = getenv($name);
+                    if (is_string($value) && '' !== $value) {
+                        return $value;
+                    }
+                }
+            }
+
+            $options = $providerConfig['options'] ?? [];
+            if (is_array($options) && is_string($options['apiKey'] ?? null) && '' !== $options['apiKey']) {
+                return $options['apiKey'];
+            }
+        }
+
+        return '';
     }
 
     /**
