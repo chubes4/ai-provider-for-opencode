@@ -43,6 +43,45 @@ class OpenCodeLocalState
         return self::apiKeyForSurfaces([$surface]);
     }
 
+    public static function apiBaseUrlForModel(string $surface, string $model): string
+    {
+        foreach (self::configPaths() as $path) {
+            $config = self::readJsonFile($path);
+            if (!is_array($config)) {
+                continue;
+            }
+
+            $providers = $config['provider'] ?? [];
+            if (!is_array($providers) || !is_array($providers[$surface] ?? null)) {
+                continue;
+            }
+
+            $providerConfig = $providers[$surface];
+            $providerOptionsUrl = self::apiBaseUrlFromOptions($providerConfig['options'] ?? []);
+            if ('' !== $providerOptionsUrl) {
+                return $providerOptionsUrl;
+            }
+
+            $modelConfig = [];
+            $models = $providerConfig['models'] ?? [];
+            if (is_array($models) && is_array($models[$model] ?? null)) {
+                $modelConfig = $models[$model];
+            }
+
+            $modelProviderUrl = self::apiBaseUrlFromOptions($modelConfig['provider'] ?? []);
+            if ('' !== $modelProviderUrl) {
+                return $modelProviderUrl;
+            }
+
+            $providerUrl = self::apiBaseUrlFromOptions($providerConfig);
+            if ('' !== $providerUrl) {
+                return $providerUrl;
+            }
+        }
+
+        return '';
+    }
+
     /**
      * @param array<int, string> $surfaces Ordered OpenCode auth surface names.
      */
@@ -61,6 +100,13 @@ class OpenCodeLocalState
 
             $key = $entry['key'] ?? $entry['access'] ?? '';
             if (is_string($key) && '' !== $key) {
+                return $key;
+            }
+        }
+
+        foreach ($surfaces as $surface) {
+            $key = self::apiKeyFromConfig($surface);
+            if ('' !== $key) {
                 return $key;
             }
         }
@@ -112,6 +158,59 @@ class OpenCodeLocalState
         }
 
         return self::homeDir() . '/.local/share/opencode/auth.json';
+    }
+
+    private static function apiBaseUrlFromOptions($options): string
+    {
+        if (!is_array($options)) {
+            return '';
+        }
+
+        foreach (['baseURL', 'baseUrl', 'base_url', 'endpoint', 'api', 'url'] as $key) {
+            $value = $options[$key] ?? null;
+            if (is_string($value) && preg_match('#^https?://#', $value)) {
+                return rtrim($value, '/');
+            }
+        }
+
+        return '';
+    }
+
+    private static function apiKeyFromConfig(string $surface): string
+    {
+        foreach (self::configPaths() as $path) {
+            $config = self::readJsonFile($path);
+            if (!is_array($config)) {
+                continue;
+            }
+
+            $providers = $config['provider'] ?? [];
+            if (!is_array($providers) || !is_array($providers[$surface] ?? null)) {
+                continue;
+            }
+
+            $providerConfig = $providers[$surface];
+            $env = $providerConfig['env'] ?? [];
+            if (is_array($env)) {
+                foreach ($env as $name) {
+                    if (!is_string($name) || '' === $name) {
+                        continue;
+                    }
+
+                    $value = getenv($name);
+                    if (is_string($value) && '' !== $value) {
+                        return $value;
+                    }
+                }
+            }
+
+            $options = $providerConfig['options'] ?? [];
+            if (is_array($options) && is_string($options['apiKey'] ?? null) && '' !== $options['apiKey']) {
+                return $options['apiKey'];
+            }
+        }
+
+        return '';
     }
 
     /**

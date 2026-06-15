@@ -49,6 +49,7 @@ putenv('HOME=' . $emptyRoot . '/home');
 putenv('XDG_CONFIG_HOME=' . $emptyRoot . '/config');
 putenv('XDG_DATA_HOME=' . $dataHome);
 putenv('XDG_STATE_HOME=' . $stateHome);
+putenv('OPENCODE_TEST_ENV_PROVIDER_KEY=fixture-env-provider-test-key');
 
 final class CapturingTransporter implements HttpTransporterInterface
 {
@@ -99,7 +100,7 @@ $directory = OpenCodeProvider::modelMetadataDirectory();
 $directory->setHttpTransporter(new CapturingTransporter());
 $directory->setRequestAuthentication(new ApiKeyRequestAuthentication('test-key'));
 $models    = $directory->listModelMetadata();
-expect(count($models) === 9, 'Authenticated model listing should include live and local configured models.');
+expect(count($models) === 11, 'Authenticated model listing should include live and local configured models.');
 expect($directory->hasModelMetadata('opencode/zen-live-model-one'), 'Zen model metadata should be present.');
 expect($directory->hasModelMetadata('opencode-go/go-live-model-one'), 'Go model metadata should be present.');
 expect($directory->hasModelMetadata('opencode-go/go-live-model-two'), 'Go live model metadata should be present.');
@@ -107,9 +108,15 @@ expect($directory->hasModelMetadata('opencode/deterministic-provider/determinist
 expect($directory->hasModelMetadata('opencode-go/local-go-model'), 'Configured Go model metadata should be present.');
 expect($directory->hasModelMetadata('opencode/recent-provider/recent-model'), 'Recent configured model metadata should be present.');
 expect($directory->hasModelMetadata('opencode/oauth-provider/oauth-model'), 'Configured OAuth provider model metadata should be present.');
+expect($directory->hasModelMetadata('opencode/env-provider/env-model'), 'Configured env provider model metadata should be present.');
+expect($directory->hasModelMetadata('opencode/config-key-provider/config-key-model'), 'Configured key provider model metadata should be present.');
 
 expect(OpenCodeProvider::baseUrlForModel('opencode/zen-live-model-one') === OpenCodeProvider::ZEN_BASE_URL, 'Zen model should use Zen base URL.');
 expect(OpenCodeProvider::baseUrlForModel('opencode-go/go-live-model-one') === OpenCodeProvider::GO_BASE_URL, 'Go model should use Go base URL.');
+expect(OpenCodeProvider::baseUrlForModel('opencode/deterministic-provider/deterministic-v2') === 'https://deterministic-provider.local/v1', 'Configured provider model should use local config base URL.');
+expect(OpenCodeProvider::baseUrlForModel('opencode/oauth-provider/oauth-model') === 'https://oauth-provider.local/v1', 'Configured provider model should use local config API URL.');
+expect(OpenCodeProvider::baseUrlForModel('opencode/env-provider/env-model') === 'https://env-provider.local/v1', 'Configured provider model should use local config env provider base URL.');
+expect(OpenCodeProvider::baseUrlForModel('opencode/config-key-provider/config-key-model') === 'https://config-key-provider.local/v1', 'Configured provider model should use local config key provider base URL.');
 expect(OpenCodeProvider::authSurfaceForModel('opencode/zen-live-model-one') === 'opencode', 'Bare Zen model should use OpenCode auth.');
 expect(OpenCodeProvider::authSurfacesForModel('opencode/zen-live-model-one') === ['opencode'], 'Bare Zen model should only use OpenCode auth.');
 expect(OpenCodeProvider::authSurfaceForModel('opencode/deterministic-provider/deterministic-v2') === 'deterministic-provider', 'Configured provider model should use its provider auth.');
@@ -121,7 +128,7 @@ expect($zenModel instanceof OpenCodeTextGenerationModel, 'Zen provider model sho
 expect($goModel instanceof OpenCodeTextGenerationModel, 'Go provider model should be an OpenCode text model.');
 
 $freshDirectory = new OpenCodeModelMetadataDirectory();
-expect(count($freshDirectory->listModelMetadata()) === 4, 'Fresh directory should expose local configured models without static fallback models.');
+expect(count($freshDirectory->listModelMetadata()) === 6, 'Fresh directory should expose local configured models without static fallback models.');
 expect($freshDirectory->hasModelMetadata('opencode-go/local-go-model'), 'Fresh directory should include local Go model metadata.');
 expect(OpenCodeProvider::model('opencode-go/local-go-model') instanceof OpenCodeTextGenerationModel, 'Provider should create configured Go text model.');
 
@@ -199,6 +206,7 @@ $configuredAuthorizationHash = hash('sha256', $configuredAuthTransport->request-
 $expectedConfiguredAuthHash  = hash('sha256', 'Bearer ' . $authFixture['deterministic-provider']['key']);
 expect($configuredAuthorizationHash === $expectedConfiguredAuthHash, 'Configured provider model execution should use provider-specific mounted auth state.');
 expect($configuredAuthTransport->request->getData()['model'] === 'deterministic-provider/deterministic-v2', 'Configured provider model request should preserve provider-qualified API model ID.');
+expect($configuredAuthTransport->request->getUri() === 'https://deterministic-provider.local/v1/chat/completions', 'Configured provider model execution should use local config base URL.');
 
 $oauthAuthModel = OpenCodeProvider::model('opencode/oauth-provider/oauth-model');
 $oauthAuthTransport = new CapturingTransporter();
@@ -211,6 +219,33 @@ expect($oauthAuthTransport->request instanceof Request, 'Configured OAuth provid
 $oauthAuthorizationHash = hash('sha256', $oauthAuthTransport->request->getHeaderAsString('Authorization'));
 $expectedOauthAuthHash = hash('sha256', 'Bearer ' . $authFixture['oauth-provider']['access']);
 expect($oauthAuthorizationHash === $expectedOauthAuthHash, 'Configured OAuth provider model execution should use mounted OpenCode access state.');
+expect($oauthAuthTransport->request->getUri() === 'https://oauth-provider.local/v1/chat/completions', 'Configured OAuth provider model execution should use local config API URL.');
+
+$envAuthModel = OpenCodeProvider::model('opencode/env-provider/env-model');
+$envAuthTransport = new CapturingTransporter();
+$envAuthModel->setHttpTransporter($envAuthTransport);
+$envAuthModel->generateTextResult([
+    new Message(MessageRoleEnum::user(), [new MessagePart('hello')]),
+]);
+
+expect($envAuthTransport->request instanceof Request, 'Configured env provider model execution should send a request.');
+$envAuthorizationHash = hash('sha256', $envAuthTransport->request->getHeaderAsString('Authorization'));
+$expectedEnvAuthHash = hash('sha256', 'Bearer fixture-env-provider-test-key');
+expect($envAuthorizationHash === $expectedEnvAuthHash, 'Configured env provider model execution should use declared environment credential.');
+expect($envAuthTransport->request->getUri() === 'https://env-provider.local/v1/chat/completions', 'Configured env provider model execution should use local config base URL.');
+
+$configKeyAuthModel = OpenCodeProvider::model('opencode/config-key-provider/config-key-model');
+$configKeyAuthTransport = new CapturingTransporter();
+$configKeyAuthModel->setHttpTransporter($configKeyAuthTransport);
+$configKeyAuthModel->generateTextResult([
+    new Message(MessageRoleEnum::user(), [new MessagePart('hello')]),
+]);
+
+expect($configKeyAuthTransport->request instanceof Request, 'Configured key provider model execution should send a request.');
+$configKeyAuthorizationHash = hash('sha256', $configKeyAuthTransport->request->getHeaderAsString('Authorization'));
+$expectedConfigKeyAuthHash = hash('sha256', 'Bearer fixture-config-provider-test-key');
+expect($configKeyAuthorizationHash === $expectedConfigKeyAuthHash, 'Configured key provider model execution should use local config credential.');
+expect($configKeyAuthTransport->request->getUri() === 'https://config-key-provider.local/v1/chat/completions', 'Configured key provider model execution should use local config base URL.');
 
 $zenAuthModel = OpenCodeProvider::model('opencode/zen-live-model-three');
 $zenAuthTransport = new CapturingTransporter();
