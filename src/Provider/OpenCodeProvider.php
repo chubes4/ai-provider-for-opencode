@@ -49,7 +49,42 @@ class OpenCodeProvider extends AbstractApiProvider
             return self::GO_BASE_URL;
         }
 
+        $configuredModel = self::configuredProviderModel($modelId);
+        if (null !== $configuredModel) {
+            $baseUrl = OpenCodeLocalState::apiBaseUrlForModel($configuredModel['provider'], $configuredModel['model']);
+            if ('' === $baseUrl) {
+                throw new RuntimeException('Configured OpenCode provider model requires a provider API base URL in local OpenCode config.');
+            }
+
+            return $baseUrl;
+        }
+
         return self::ZEN_BASE_URL;
+    }
+
+    /**
+     * @return array{provider:string,model:string}|null
+     */
+    public static function configuredProviderModel(string $modelId): ?array
+    {
+        if (strpos($modelId, 'opencode/') !== 0) {
+            return null;
+        }
+
+        $apiModelId = substr($modelId, strlen('opencode/'));
+        $parts = explode('/', $apiModelId, 2);
+        if (2 !== count($parts) || '' === $parts[0] || '' === $parts[1]) {
+            return null;
+        }
+
+        if ('opencode' === $parts[0] || 'opencode-go' === $parts[0]) {
+            return null;
+        }
+
+        return [
+            'provider' => $parts[0],
+            'model' => $parts[1],
+        ];
     }
 
     /**
@@ -97,10 +132,9 @@ class OpenCodeProvider extends AbstractApiProvider
         }
 
         if (strpos($modelId, 'opencode/') === 0) {
-            $apiModelId = substr($modelId, strlen('opencode/'));
-            $parts = explode('/', $apiModelId, 2);
-            if (2 === count($parts) && '' !== $parts[0]) {
-                return [$parts[0]];
+            $configuredModel = self::configuredProviderModel($modelId);
+            if (null !== $configuredModel) {
+                return [$configuredModel['provider']];
             }
         }
 
