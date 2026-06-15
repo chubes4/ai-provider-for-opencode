@@ -63,8 +63,8 @@ final class CapturingTransporter implements HttpTransporterInterface
 
         if (substr($request->getUri(), -7) === '/models') {
             $models = strpos($request->getUri(), '/zen/go/') !== false
-                ? [['id' => 'kimi-k2.6'], ['id' => 'deepseek-v4-flash']]
-                : [['id' => 'kimi-k2.6'], ['id' => 'qwen3.6-plus'], ['id' => 'gpt-5.5']];
+                ? [['id' => 'go-live-model-one'], ['id' => 'go-live-model-two']]
+                : [['id' => 'zen-live-model-one'], ['id' => 'zen-live-model-two'], ['id' => 'zen-live-model-three']];
 
             return new Response(200, ['Content-Type' => 'application/json'], json_encode([
                 'object' => 'list',
@@ -100,23 +100,23 @@ $directory->setHttpTransporter(new CapturingTransporter());
 $directory->setRequestAuthentication(new ApiKeyRequestAuthentication('test-key'));
 $models    = $directory->listModelMetadata();
 expect(count($models) === 9, 'Authenticated model listing should include live and local configured models.');
-expect($directory->hasModelMetadata('opencode/kimi-k2.6'), 'Zen model metadata should be present.');
-expect($directory->hasModelMetadata('opencode-go/kimi-k2.6'), 'Go model metadata should be present.');
-expect($directory->hasModelMetadata('opencode-go/deepseek-v4-flash'), 'Go live model metadata should be present.');
+expect($directory->hasModelMetadata('opencode/zen-live-model-one'), 'Zen model metadata should be present.');
+expect($directory->hasModelMetadata('opencode-go/go-live-model-one'), 'Go model metadata should be present.');
+expect($directory->hasModelMetadata('opencode-go/go-live-model-two'), 'Go live model metadata should be present.');
 expect($directory->hasModelMetadata('opencode/deterministic-provider/deterministic-v2'), 'Configured provider model metadata should be present.');
 expect($directory->hasModelMetadata('opencode-go/local-go-model'), 'Configured Go model metadata should be present.');
-expect($directory->hasModelMetadata('opencode/anthropic/claude-local'), 'Configured Anthropic model metadata should be present.');
+expect($directory->hasModelMetadata('opencode/recent-provider/recent-model'), 'Recent configured model metadata should be present.');
 expect($directory->hasModelMetadata('opencode/oauth-provider/oauth-model'), 'Configured OAuth provider model metadata should be present.');
 
-expect(OpenCodeProvider::baseUrlForModel('opencode/kimi-k2.6') === OpenCodeProvider::ZEN_BASE_URL, 'Zen model should use Zen base URL.');
-expect(OpenCodeProvider::baseUrlForModel('opencode-go/kimi-k2.6') === OpenCodeProvider::GO_BASE_URL, 'Go model should use Go base URL.');
-expect(OpenCodeProvider::authSurfaceForModel('opencode/kimi-k2.6') === 'opencode', 'Bare Zen model should use OpenCode auth.');
-expect(OpenCodeProvider::authSurfacesForModel('opencode/kimi-k2.6') === ['opencode', 'openai'], 'Bare Zen model should fall back to OpenAI auth.');
+expect(OpenCodeProvider::baseUrlForModel('opencode/zen-live-model-one') === OpenCodeProvider::ZEN_BASE_URL, 'Zen model should use Zen base URL.');
+expect(OpenCodeProvider::baseUrlForModel('opencode-go/go-live-model-one') === OpenCodeProvider::GO_BASE_URL, 'Go model should use Go base URL.');
+expect(OpenCodeProvider::authSurfaceForModel('opencode/zen-live-model-one') === 'opencode', 'Bare Zen model should use OpenCode auth.');
+expect(OpenCodeProvider::authSurfacesForModel('opencode/zen-live-model-one') === ['opencode'], 'Bare Zen model should only use OpenCode auth.');
 expect(OpenCodeProvider::authSurfaceForModel('opencode/deterministic-provider/deterministic-v2') === 'deterministic-provider', 'Configured provider model should use its provider auth.');
-expect(OpenCodeProvider::authSurfaceForModel('opencode-go/kimi-k2.6') === 'opencode-go', 'Go model should use Go auth.');
+expect(OpenCodeProvider::authSurfaceForModel('opencode-go/go-live-model-one') === 'opencode-go', 'Go model should use Go auth.');
 
-$zenModel = OpenCodeProvider::model('opencode/kimi-k2.6');
-$goModel  = OpenCodeProvider::model('opencode-go/kimi-k2.6');
+$zenModel = OpenCodeProvider::model('opencode/zen-live-model-one');
+$goModel  = OpenCodeProvider::model('opencode-go/go-live-model-one');
 expect($zenModel instanceof OpenCodeTextGenerationModel, 'Zen provider model should be an OpenCode text model.');
 expect($goModel instanceof OpenCodeTextGenerationModel, 'Go provider model should be an OpenCode text model.');
 
@@ -171,7 +171,7 @@ $goModel->generateTextResult([
 
 expect($transport->request instanceof Request, 'Explicit-auth model execution should send a request.');
 expect($transport->request->getUri() === 'https://opencode.ai/zen/go/v1/chat/completions', 'Go model should use Go completions endpoint.');
-expect($transport->request->getData()['model'] === 'kimi-k2.6', 'Go model request should use bare API model ID.');
+expect($transport->request->getData()['model'] === 'go-live-model-one', 'Go model request should use bare API model ID.');
 expect($transport->request->getHeaderAsString('Authorization') === 'Bearer test-key', 'Explicit auth should be preserved.');
 
 $localAuthModel = OpenCodeProvider::model('opencode-go/local-go-model');
@@ -212,18 +212,18 @@ $oauthAuthorizationHash = hash('sha256', $oauthAuthTransport->request->getHeader
 $expectedOauthAuthHash = hash('sha256', 'Bearer ' . $authFixture['oauth-provider']['access']);
 expect($oauthAuthorizationHash === $expectedOauthAuthHash, 'Configured OAuth provider model execution should use mounted OpenCode access state.');
 
-$zenFallbackModel = OpenCodeProvider::model('opencode/gpt-5.5');
-$zenFallbackTransport = new CapturingTransporter();
-$zenFallbackModel->setHttpTransporter($zenFallbackTransport);
-$zenFallbackModel->generateTextResult([
+$zenAuthModel = OpenCodeProvider::model('opencode/zen-live-model-three');
+$zenAuthTransport = new CapturingTransporter();
+$zenAuthModel->setHttpTransporter($zenAuthTransport);
+$zenAuthModel->generateTextResult([
     new Message(MessageRoleEnum::user(), [new MessagePart('hello')]),
 ]);
 
-expect($zenFallbackTransport->request instanceof Request, 'Bare Zen model execution should send a request.');
-$zenFallbackAuthorizationHash = hash('sha256', $zenFallbackTransport->request->getHeaderAsString('Authorization'));
-$expectedZenFallbackAuthHash = hash('sha256', 'Bearer ' . $authFixture['openai']['access']);
-expect($zenFallbackAuthorizationHash === $expectedZenFallbackAuthHash, 'Bare Zen model execution should fall back to mounted OpenAI access state.');
-expect($zenFallbackTransport->request->getData()['model'] === 'gpt-5.5', 'Bare Zen model request should send the OpenCode API model ID.');
+expect($zenAuthTransport->request instanceof Request, 'Bare Zen model execution should send a request.');
+$zenAuthorizationHash = hash('sha256', $zenAuthTransport->request->getHeaderAsString('Authorization'));
+$expectedZenAuthHash = hash('sha256', 'Bearer ' . $authFixture['opencode']['key']);
+expect($zenAuthorizationHash === $expectedZenAuthHash, 'Bare Zen model execution should use mounted OpenCode auth state.');
+expect($zenAuthTransport->request->getData()['model'] === 'zen-live-model-three', 'Bare Zen model request should send the OpenCode API model ID.');
 
 $registryTransport = new CapturingTransporter();
 $registry = new ProviderRegistry();

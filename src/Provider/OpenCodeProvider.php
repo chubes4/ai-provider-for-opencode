@@ -104,7 +104,7 @@ class OpenCodeProvider extends AbstractApiProvider
             }
         }
 
-        return ['opencode', 'openai'];
+        return ['opencode'];
     }
 
     /**
